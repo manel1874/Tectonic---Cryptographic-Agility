@@ -1,0 +1,144 @@
+
+\section{Cryptographic Agile Consensus}\label{ss:cryptographic-agile-consensus}
+
+% \ron{My part} 
+% \subsection{Motivation for Consensus-Layer Cryptographic Agility}\label{subsec:consensus-motivation}
+% While Section~\ref{ss:blockchain-hurdles} establishes general cryptographic agility principles and identifies blockchain-specific challenges, the consensus layer presents unique constraints and opportunities that warrant dedicated treatment.
+% Unlike the execution layer, where cryptographic operations primarily protect individual accounts and transactions, the consensus layer secures the integrity of block finalization itself.
+% A compromise at this layer does not merely affect individual users but undermines the entire chain's history and trustworthiness.
+% This asymmetric risk profile, combined with the operational realities of validator infrastructure, motivates a distinct approach to cryptographic agility at the consensus layer.
+
+% \paragraph{Validator key longevity and stake lock-in.}
+% In Proof-of-Stake systems, validator keys are tightly coupled to staked capital, slashing conditions, and attestation histories that establish validator reputation.
+% Unlike externally owned accounts where users can generate new keys and transfer funds, validators cannot simply migrate to new cryptographic schemes without unstaking, waiting through unbonding periods, and re-establishing their position.
+% This creates a fundamental tension: the very mechanism that provides economic security (stake lock-in) also creates friction against cryptographic transitions.
+% Consensus-layer agility addresses this by allowing validators to rotate their signing keys to new algorithms while maintaining their staked position, avoiding the coordination problem of mass unstaking events during cryptographic transitions.
+
+% \paragraph{Heterogeneous upgrade timelines.}
+% The adoption trade-offs discussed in Section~\ref{ss:blockchain-hurdles} are particularly acute at the consensus layer due to hardware security module (HSM) constraints.
+% Institutional validators operating with HSM-backed key management face purchasing and certification cycles that can span 12--18 months, while smaller validators on commodity hardware may upgrade within weeks.
+% A consensus mechanism that mandates simultaneous cryptographic transitions would either delay security improvements to accommodate the slowest participants or risk excluding well-capitalized validators during transition periods.
+% Supporting multiple signature schemes at the consensus layer accommodates these heterogeneous timelines, allowing the network to progressively strengthen its security posture without forcing forks or excluding participants.
+
+% \paragraph{Signature aggregation and modularity constraints.}
+% Current Proof-of-Stake implementations, notably Ethereum, rely on BLS signatures specifically for their aggregation property: thousands of validator attestations compress into a single verifiable signature.
+% This represents a concrete instance of the modularity challenge identified in Section~\ref{ss:blockchain-hurdles}, where the protocol depends on specific algebraic properties rather than treating signatures as black-box primitives.
+% Post-quantum alternatives to BLS aggregation remain an active research area, with proposed hash-based constructions exhibiting fundamentally different performance characteristics.
+% Consensus-layer agility enables experimentation with and transition between aggregation-capable schemes without requiring all-or-nothing hard forks, allowing the network to adopt improved constructions as they mature.
+
+% \paragraph{Finality and the historical record.}
+% Consensus signatures are broadcast publicly and permanently recorded on-chain.
+% An adversary with future access to a cryptographically relevant quantum computer could forge historical validator signatures, potentially creating alternate histories that appear cryptographically valid.
+% While this does not immediately enable theft of funds (unlike execution-layer key recovery), it undermines the auditability and provable integrity that constitute core blockchain value propositions.
+% Proactive migration at the consensus layer, enabled by cryptographic agility, preserves the long-term verifiability of the chain's historical record.
+
+% \ron{end of my part}
+
+
+Consensus layers usually enforce a single and fixed cryptographic signature scheme set at genesis, with all nodes validating at startup to ensure configuration consistency~\cite{ETH:W14}.
+This approach mirrors the singular flexibility type discussed in Section~\ref{ss:flexibility-spectrum}.
+However, embedding the scheme in the genesis configuration means that changing the consensus signature algorithm requires a hard fork, creating a significant barrier to cryptographic migration.
+This migration barrier is particularly concerning at the consensus layer, where a cryptographic compromise does not merely affect individual users, but undermines the entire chain's history.
+%The problem is compounded in Proof-of-Stake systems, where validator keys are coupled to staked capital and slashing conditions, meaning that validators cannot easily migrate to new schemes without unstaking and re-establishing their position.
+
+In this section, we present an extension to Tendermint-based consensus~\cite{ARXIV:BKM18} that enables scheme changes via on-chain governance while maintaining consensus safety.
+The key insight is that transitions between schemes can be coordinated through consensus-layer transactions, allowing the network to migrate to new algorithms as operational upgrades without requiring a hard fork.
+
+\subsection{Architecture}\label{subsec:consensus-architecture}
+
+The core contribution of this design is the introduction of key registration transactions, which is a new consensus layer transaction type that enables validators to register new cryptographic keys for upcoming upgrades.
+Unlike EVM execution layer transactions, key registrations are processed entirely within the consensus layer.
+The proposer includes valid key registration transactions in the block's consensus data, and all validators process them as part of block finalization.
+
+\begin{figure}[t]
+\centering
+\begin{tcolorbox}[colback=white, colframe=black, width=0.85\textwidth, boxrule=0.5pt]
+\begin{tabular}{@{}p{0.45\textwidth}p{0.45\textwidth}@{}}
+\textbf{Consensus Data} & \textbf{Execution Data} \\
+\hline
+\texttt{height} & \texttt{ExecutionPayload} \\
+\texttt{round} & \quad (EVM transactions) \\
+\texttt{proposer} & \\
+\texttt{validatorSet} & \\
+\texttt{keyRegistrations} $\leftarrow$ & \\
+\texttt{commitSignatures} & \\
+\end{tabular}
+\end{tcolorbox}
+\caption{Block structure with key registrations as consensus layer data, separate from EVM execution data.}
+\label{fig:consensus-block-structure}
+\end{figure}
+
+Figure~\ref{fig:consensus-block-structure} illustrates how key registrations reside in the consensus portion of the block.
+Validators learn all nodes' consensus keys by deterministically executing the chain state with no additional P2P gossip layer required.
+The supported consensus signing schemes can include different post-quantum schemes such as Falcon~\cite{NISTPQC-R3:FALCON20}, ML-DSA~\cite{NIST:24MLDSA}, and SLH-DSA~\cite{NIST:24SLH}, although only one scheme is active at any given height as explained below.
+
+\subsection{Upgrade Mechanism}\label{subsec:upgrade-mechanism}
+
+The upgrade process involves four phases coordinated through on-chain state.
+To support this process, the consensus layer maintains two new data structures that track pending upgrades and validator readiness.
+
+\paragraph{Data structures.}\label{para:consensus-data-structures}
+The consensus layer maintains a \texttt{ConsensusParams} record in chain state to track the cryptographic configuration and coordinate upgrades across all nodes.
+This record stores the currently active signing scheme, ensuring all validators use the same algorithm for block signatures, and a minimum upgrade delay that enforces a safety window between proposal and activation.
+
+When governance proposes a scheme change, a \texttt{PendingSchemeUpgrade} is added to \texttt{ConsensusParams}.
+It stores the target activation height, the new scheme identifier, and a readiness threshold (representing $>2/3$ of voting power \cite{ARXIV:BKM18}). %, consistent with BFT consensus thresholds~\cite{ARXIV:BKM18}).
+This record allows all nodes to know that an upgrade is scheduled and track how many validators have prepared for the transition.
+
+Validators signal their readiness by submitting a \texttt{KeyRegistrationTx}, which contains the validator's address, their new public key for the target scheme, the upgrade height, and a signature computed with their current consensus key over:
+\begin{equation*}
+\mathsf{Sign}\left(\texttt{oldKey}, \texttt{"KEY\_REGISTRATION"} \parallel \texttt{address} \parallel \texttt{scheme} \parallel \texttt{height} \parallel \texttt{newKey}\right).
+\end{equation*}
+Signing with the current key proves that the legitimate validator (not an impersonator) is authorizing the transition to the new key.
+
+\paragraph{Upgrade Mechanism.}\label{para:upgrade-flow} The upgrade mechanism is described in Figure~\ref{fig:consensus-upgrade-flow} and it is based on the following steps.
+\emph{(1) Proposal:} Governance proposes a scheme change at a future block height $H$, setting the \texttt{PendingSchemeUpgrade} in consensus state.
+External coordination is expected before this proposal, particularly for validators using hardware security modules that may require lead time to provision new key material.
+\emph{(2) Registration:} Each validator generates a new keypair for the target scheme and submits a \texttt{KeyRegistrationTx} signed with their current key.
+%Registration must occur at least a minimum number of blocks before activation to prevent timing attacks.
+\emph{(3) Readiness check:} At height $H-1$, the protocol verifies that sufficient voting power (exceeding the $2/3$ threshold) has registered new keys.
+If the threshold is not met, the upgrade is cancelled. Importantly, the chain continues operating under the current scheme rather than halting.
+\emph{(4) Activation:} At height $H$, the consensus signing scheme switches to the new algorithm.
+Validators who failed to register are excluded from the active validator set; they must restake and follow standard procedures to rejoin.
+
+\input{figures/consensus-upgrade-flow}
+
+\subsection{Extension}
+
+Let us extend the upgrade mechanism to handle edge cases and catastrophic scenarios: emergency migration mode and validator lifecycle management.
+
+\paragraph{Emergency migration mode.} The upgrade mechanism presented before assumes the current signature scheme remains secure throughout the migration window. 
+However, that assumption might not hold. 
+In that case, signatures can be forged, allowing an attacker to register arbitrary new keys and hijack the whole consensus upgrade mechanism.
+
+To mitigate this issue, we introduce a dual-key system where each validator maintains two independent keys: a primary key for normal consensus, and a recovery key used for emergency migration.
+The recovery key should rely on a different security assumption than the primary key.
+Since the recovery key is only used sporadically, we can use a more conservative signature scheme (e.g., SLH-DSA~\cite{NIST:24SLH}).
+Then, when governance declares an emergency upgrade the authentication mechanism switches: \texttt{KeyRegistrationTx} transactions require signatures from recovery keys instead of primary keys. 
+This design effectively prevents an attacker from hijacking the consensus upgrade mechanism under a broken primary signature scheme. 
+
+\paragraph{Validator lifecycle during upgrades.} The validator set is not static during the upgrade window as validators may join or exist.
+We need to address both scenarios during a normal and emergency upgrade.
+
+When a new validator joins during a normal pending upgrade, they must provide keys for both the current scheme and the pending scheme.
+Requiring both keys at onboarding ensures new validators can participate immediately while surviving the upgrade, and their pending key is automatically registered in \texttt{ConsensusParams.pending\_keys}.
+
+When a validator exits during a normal pending upgrade, their registration state must be deleted and readiness recalculated dynamically.
+If this exit causes readiness to drop below the $2/3$ threshold, the upgrade is automatically cancelled to preserve chain liveness.
+This dynamic recalculation ensures that the upgrade only proceeds if the current validator set has sufficient readiness, not just the validator set that existed at proposal time.
+
+During emergency upgrades, since primary signatures cannot be trusted for identity verification, validators cannot join and must wait until the emergency upgrade completes.
+
+\subsection{Security Considerations}\label{subsec:consensus-security}
+
+The mechanism addresses several security threats.
+%Timing attacks are mitigated by requiring registrations a minimum number of blocks before activation, preventing last-minute manipulation.
+Insufficient readiness cancels the upgrade rather than halting the chain, preserving liveness.
+Replay attacks are prevented by including the upgrade height in the signed registration data.
+Duplicate keys are rejected during validation to prevent voting power inflation.
+Downgrade attacks intend to make verifiers accept an weaker consensus signing scheme.
+Assuming honest governance, such attacks reduce to replaying previously issued upgrade artifacts (e.g., a stale \texttt{PendingSchemeUpgrade}), which is mitigated because scheme activation is derived deterministically from finalized consensus state at each height and upgrade-specific authentication is bound to the intended activation height (so replays fail).
+Additionally, upgrade cancellation preserves the currently active scheme rather than reverting, preventing downgrade via propose/cancel behavior.
+
+Additionally, historical verification must be preserved after scheme changes.
+Old keys must be retained in chain state to verify old blocks since the deterministic replay of chain state ensures this data remains available.

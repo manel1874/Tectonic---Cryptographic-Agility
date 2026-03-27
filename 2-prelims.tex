@@ -1,0 +1,76 @@
+\section{Preliminaries}\label{sec:prelims}
+
+\subsection{Definitions} 
+
+% \begin{definition}[Key Encapsulation Mechanisms]
+% A Key Encapsulation Mechanism (KEM) is a tuple of algorithms $(\mathsf{KeyGen}, \mathsf{Encap}, \mathsf{Decap})$ defined as follows:
+% \begin{itemize}
+%     \item $(\mathsf{pk}, \mathsf{sk}) \leftarrow \mathsf{KeyGen}()$: generates a public/private key pair.
+%     \item $(\mathsf{ct}, \mathsf{ss}) \leftarrow \mathsf{Encap}(\mathsf{pk})$: given a public key, outputs a ciphertext $\mathsf{ct}$ and a shared secret $\mathsf{ss}$.
+%     \item $\mathsf{ss} \leftarrow \mathsf{Decap}(\mathsf{sk}, \mathsf{ct})$: given a secret key and ciphertext, recovers the shared secret.
+% \end{itemize}
+% A KEM is correct if decapsulation recovers the same shared secret produced by encapsulation almost always, and secure if it satisfies IND-CCA (indistinguishability under adaptive chosen-ciphertext attack)~\cite{EPRINT:Shoup01}.
+% \end{definition}
+
+% During the current transition period, hybrid KEMs combine a classical scheme with a post-quantum scheme, where security holds if either component remains unbroken.
+% In this work, we instantiate hybrid key exchange using X-Wing~\cite{EPRINT:BCDKSV24}, which combines X25519~\cite{PKC:Bernstein06} and ML-KEM-768~\cite{NIST:24MLDSA} into a single KEM.
+
+\begin{definition}[Digital Signatures]
+A digital signature scheme is a tuple of algorithms $(\mathsf{KeyGen}, \mathsf{Sign}, \mathsf{Verify})$ defined as follows:
+\begin{itemize}
+    \item $(\mathsf{pk}, \mathsf{sk}) \leftarrow \mathsf{KeyGen}()$: generates a public/private key pair.
+    \item $\sigma \leftarrow \mathsf{Sign}(\mathsf{sk}, m)$: produces a signature $\sigma$ on message $m$.
+    \item $\{0, 1\} \leftarrow \mathsf{Verify}(\mathsf{pk}, \sigma, m)$: returns 1 if the signature is valid, 0 otherwise.
+\end{itemize}
+A signature scheme is correct if $\mathsf{Verify}(\mathsf{pk}, \mathsf{Sign}(\mathsf{sk}, m), m) = 1$ for all messages $m$ and corresponding keypairs $(\mathsf{pk}, \mathsf{sk})$, and secure if it satisfies EUF-CMA (existential unforgeability under chosen-message attack)~\cite{MenVanVan96}.
+\end{definition}
+
+The elliptic curve digital signature algorithm (ECDSA)~\cite{NIST:FIPS1865} is a digital signature scheme based on elliptic curves.
+In Ethereum~\cite{ETH:W14}, ECDSA is instantiated over the secp256k1 curve, and a signature on a message $m$ consists of three components: $(\texttt{r}, \texttt{s}, \texttt{v})$, where $\texttt{r}$ and $s$ are 32-byte integers and $\texttt{v}$ is a recovery parameter.
+The recovery parameter $\texttt{v}$ encodes information about the parity of the public key $y$-coordinate. 
+Therefore, given $(\texttt{r}, \texttt{s}, \texttt{v})$ and $m$, the public key can be uniquely determined without explicitly transmitting it.
+This property is exploited in Ethereum during transaction validation~\cite[Appendix F]{ETH:W14}.
+
+
+\subsection{EVM-based Blockchains}
+
+Blockchains are decentralized systems for maintaining a shared, append-only ledger among a set of untrusted parties. 
+Instead of relying on a central authority, a blockchain uses cryptographic techniques, such as hash functions and digital signatures, and distributed consensus to ensure that all parties agree on the order and contents of recorded transactions. 
+% Data are organized into blocks that are cryptographically linked, making the ledger tamper-evident once entries are confirmed. 
+% This design enables secure, transparent coordination across a network, and has made blockchains a foundational primitive for cryptocurrencies, distributed applications, and other trust-minimized systems.
+
+Ethereum virtual machine (EVM)-based blockchains~\cite{ETH:BU13} organize their protocol stack into distinct layers, each responsible for a specific functionality.
+Next, we describe the four primary layers of blockchain systems.
+
+\paragraph{Transactions.}
+Transactions are the units of state change in a blockchain.
+In Ethereum, transactions use recursive length prefix (RLP) encoding~\cite[Appendix B]{ETH:W14} as the canonical serialization format, providing deterministic encoding.
+Since EIP-2718~\cite{eip2718}, Ethereum transactions follow a typed envelope format:
+\begin{equation*}
+\texttt{Tx} = \texttt{type} \parallel \mathsf{RLP}(\texttt{payload}),
+\end{equation*}
+where \texttt{type} is a single-byte identifier distinguishing transaction formats (e.g., \texttt{0x02} for EIP-1559 fee market transactions).
+This typed structure enables protocol evolution by allowing new transaction formats and we redesign it to accommodate different signature schemes (cf. Section~\ref{s:catx}).
+
+\paragraph{Execution Layer.}
+The execution layer (EL) consists of nodes, called clients, which verify and execute transactions and update the network's global state.
+This involves executing smart contract bytecode in a virtual machine.
+% The execution layer maintains the world state---a mapping from addresses to account states (balance, nonce, code, storage)---and applies state transitions according to transaction semantics.
+A specific category of operations in EVM bytecode are precompiled contracts, which offer efficient implementations of computationally intensive cryptographic functions that would otherwise be prohibitively expensive to execute.
+
+\paragraph{Consensus Layer.}
+The consensus layer (CL) secures the integrity of block finalization, ensuring all honest nodes agree on the canonical chain of blocks.
+Byzantine fault tolerant (BFT)~\cite{ACM:LSP82,ARXIV:BKM18} consensus protocols enable agreement even when some validators behave maliciously.
+
+In weighted BFT systems such as Tendermint~\cite{ARXIV:BKM18}, each validator has an associated voting power and a block is finalized when validators representing more than $2/3$ of voting power sign commit messages for that block.
+The consensus proceeds in rounds consisting of three phases: \emph{Propose} (proposer broadcasts a candidate block), \emph{Prevote} (validators vote for the proposal), and \emph{Precommit} (validators commit upon seeing sufficient prevotes).
+We use this structure to allow for cryptographic agility in the validator's signature scheme used (cf. Section~\ref{ss:cryptographic-agile-consensus}).
+
+\paragraph{P2P Communication Layer.}
+The peer-to-peer (P2P) layer enables nodes to discover each other and exchange messages without centralized coordination.
+This layer consists of two main components: a discovery protocol that maintains a distributed hash table (DHT) for peer discovery, and a transport protocol that establishes secure communication channels.
+
+In Ethereum's execution layer, the Discv4 protocol~\cite{ethereum_discv4} enables peer discovery via UDP gossip.
+Discovery packets are authenticated using ECDSA signatures with public key recovery, binding messages to node identities.
+The RLPx transport protocol~\cite{ethereum_rlpx} then establishes encrypted sessions between discovered peers using ECIES~\cite{JCSE:GHS10} for key agreement.
+%Section~\ref{s:p2p-node-communication} presents our modifications to these protocols for post-quantum security.

@@ -1,0 +1,102 @@
+\section{Cryptographic Flexibility in Blockchains}\label{sec:crypto-flexibility}
+
+Cryptographic agility (CA) is a design principle that enables systems to adapt their cryptographic algorithms over time without disrupting their live functioning~\cite{NIST:BCC+25}. 
+In this section, we introduce some principles established by NIST Cybersecurity White Paper (CSWP) 39~\cite{NIST:BCC+25} to enable effective cryptographic agility and highlight the unique challenges blockchains face in adopting them. 
+We then present a flexibility framework that characterizes how algorithm choice can be distributed across blockchain participants, providing a lens through which to analyze the design space for cryptographic transitions.
+
+\subsection{Challenges}\label{ss:blockchain-hurdles}
+
+NIST CSWP 39~\cite{NIST:BCC+25} establishes a set of principles that enable effective cryptographic agility. 
+Among others, it stresses the need for: algorithm identification through ciphersuite negotiation and naming conventions; modularity that separates cryptographic algorithms from application logic, enabling algorithms to be treated as interchangeable components; policy and mechanism separation that allows cryptographic policies to be stored in configuration files rather than hard-wired in source code; and mechanisms for preserving interoperability during transitions. 
+Additionally, systems must handle the deployment of algorithm transitions, which can take years when new infrastructure is required, and manage cryptographic keys associated with deprecated algorithms through proper key expiration and revocation procedures.
+
+While the NIST principles provide a foundation for cryptographic agility in traditional systems, each concept faces unique challenges when applied to blockchain environments. 
+More specifically, ciphersuite negotiation, which works effectively in point-to-point protocols like TLS~\cite{rfc8446_tls13}, becomes impractical among an unbounded number of distributed nodes. 
+Modularity is limited when protocols depend on algorithm-specific properties rather than using cryptography as a black box. 
+For instance, KZG~\cite{ASIACRYPT:10KZG} commitments are tied to specific data types, and BLS~\cite{ASIACRYPT:01BLS} signatures are chosen specifically for their aggregation properties, making drop-in replacements non-trivial.
+Moreover, preserving interoperability presents asymmetric challenges between blockchain entities, as different participants face different coordination constraints (discussed in Section~\ref{ss:flexibility-spectrum}).
+Key lifecycle management is particularly problematic in blockchains, where addresses serve as long-lived identities tied to deprecated algorithms, making key expiration and revocation difficult to implement without disrupting user accounts. 
+Finally, deploying algorithm transitions in consensus scenarios is more complex than in centralized systems.
+Indeed, not all nodes upgrade simultaneously, making it difficult to determine which nodes are honest, potentially leading to forks and increased vulnerability to 51\% attacks during transition periods. 
+
+
+\subsection{Flexibility Framework}\label{ss:flexibility-spectrum}
+
+The challenges outlined in Section~\ref{ss:blockchain-hurdles} demonstrate that blockchain systems cannot adopt traditional cryptographic agility principles wholesale.
+Instead, cryptographic agility in blockchains is best understood as a design space where different components require different degrees of flexibility based on their coordination constraints, which we unfold next.
+
+\subsubsection{Coordination Constraints.}\label{subsubsec:coordination-constraints}
+
+Different blockchain participants face different pressures when cryptographic algorithms change.
+Node operators actively manage staking collateral and operations, enabling them to coordinate quickly: when consensus-critical vulnerabilities emerge, the economic cost of non-compliance (missed rewards, slashing, chain splits) creates strong incentives for rapid, synchronized upgrades.
+The patching of CVE-2018-17144 within days~\cite{bitcoin_cve2018} exemplifies this dynamic.
+For these stakeholders, hard transitions at defined upgrade points are operationally feasible. 
+However, even for node operators, hardware adoption can present significant barriers.
+Many hardware security modules (HSM) lack support for certain post-quantum algorithms (e.g., Falcon~\cite{NISTPQC-R3:FALCON20}), and operational constraints such as long HSM purchasing and refresh cycles can slow down cryptographic migration.
+This makes it necessary to support multiple signature schemes to accommodate different business and hardware timelines, even among participants who are otherwise willing to coordinate.
+
+End users, by contrast, interact with the chain sporadically and cannot be expected to upgrade in lockstep.
+% A user who returns after two years should not discover that their funds are inaccessible because they failed to migrate during a transition window.
+% Legacy wallets may remain incompatible with new cryptographic schemes indefinitely.
+% For user-facing components, the system must therefore support multiple algorithms simultaneously, allowing gradual adoption without forcing coordinated action.
+Also, they lack a comparable pressure to migrate since their funds may remain accessible under legacy schemes and the quantum threat may feel distant~\cite{tectonic2025quantumdisconnect}.
+Ideally, a user who returns after some period of time should not discover that their funds are inaccessible because they failed to migrate during a specific time frame.
+Therefore, for user-facing components, the system should support multiple algorithms simultaneously, allowing gradual adoption without forcing coordinated action.
+This trade-off is supported by the selected flexibility type (Section~\ref{subsubsec:flexibility-models}) below, which shifts the burden of multi-algorithm support to validators.
+
+These asymmetries, between those who operate the network and those who use it, determine which flexibility strategies are feasible for each layer.
+
+\subsubsection{Flexibility Types.}\label{subsubsec:flexibility-models}
+
+We characterize cryptographic agility along a flexibility spectrum that captures how algorithm choice is distributed across participants.
+This spectrum ranges from enforcement of a single algorithm to full user-side choice, with a negotiated type in between:
+
+\begin{itemize}
+    \item \emph{Singular.} Exactly one algorithm is permitted system-wide at any point in time.
+    All participants must use the same algorithm, which simplifies verification logic but creates a single point of cryptographic failure: if that algorithm is broken, the entire system is compromised.
+    This model suits components where all parties can coordinate upgrades synchronously.
+    % \emph{Example:} Ethereum's proof-of-stake consensus currently mandates BLS12-381 signatures for all validator attestations.
+    
+    % \item \emph{Layered.} Multiple algorithms are composed in series, providing defense-in-depth during periods of cryptographic uncertainty.
+    % Security holds unless \emph{all} layers are simultaneously broken.
+    % This model is appropriate when confidence in any single algorithm is insufficient, particularly during transitions to post-quantum cryptography.
+    % \emph{Example:} X-Wing~\cite{EPRINT:BCDKSV24} combines X25519 (classical) with ML-KEM-768 (post-quantum) so that compromise of either component alone does not break security.
+    
+    \item \emph{Negotiated.} Both communicating parties select an algorithm from the intersection of their individually supported sets.
+    This approach is standard in point-to-point protocols but difficult to generalize to decentralized systems where transactions must be validated by an unbounded set of nodes without prior negotiation.
+    % \emph{Example:} TLS ciphersuite negotiation, where client and server exchange supported algorithms and agree on a common choice.
+    
+    \item \emph{Selected.} One party unilaterally chooses an algorithm from a protocol-defined allowed set.
+    This shifts flexibility to the edge where users can adopt new algorithms at their own pace.
+    The tradeoff is that verifiers must maintain implementations of all supported algorithms.
+    %\emph{Example:} CATX transactions (Section~\ref{s:catx}), where signers specify their signature scheme and verifiers accept any scheme from the allowed set.
+\end{itemize}
+
+\subsubsection{Mapping Blockchain Components.}\label{subsubsec:mapping-components}
+
+Based on the flexibility framework and the coordination constraints, we propose the following positioning for our design.
+
+\paragraph{Transactions: Selected.}\label{para:transaction-selected}
+Since transactions originate from users who cannot be forced to upgrade synchronously, legacy wallets must remain functional while users adopt post-quantum signatures at their own pace.
+We therefore adopt a selected model where senders choose their signature algorithm from an allowed set, and all nodes processing transactions (EL clients) must support verification of every algorithm in that set.
+The CATX transaction format (Section~\ref{s:catx}) enables this by encoding algorithm identifiers directly in the transaction structure, decoupling signature schemes from transaction semantics.
+User migration from legacy to post-quantum schemes proceeds through wallet creation and fund transfer: a user generates a new keypair under the target scheme (e.g., ML-DSA-44), derives a new address from that keypair, and transfers funds from their legacy address via a standard transaction.
+This approach requires no protocol-level coordination but it changes the user's on-chain address.
+
+\paragraph{Execution Layer: Selected.}\label{para:execution-selected}
+On-chain cryptographic operations exposed via precompiled contracts follow the same selected model as transactions.
+Smart contracts invoke signature-specific precompiles, and the execution layer must support all algorithms in the allowed set.
+This enables contracts to adopt new cryptographic primitives without requiring protocol upgrades for each addition.
+
+\paragraph{Consensus Layer: Singular.}\label{para:consensus-singular}
+Consensus requires all validators to agree on block validity using identical verification logic.
+Supporting multiple signature algorithms would complicate fork-choice rules and increase the attack surface during transitions.
+We therefore adopt a singular model where all validators use the same algorithm (Falcon-512~\cite{NISTPQC-R3:FALCON20} in our implementation).
+Section~\ref{ss:cryptographic-agile-consensus} details a migration mechanism for transitioning between singular algorithms without requiring a hard-fork and based on consensus.
+
+\paragraph{P2P Communication: Singular.}\label{para:p2p-layered}
+The peer-to-peer layer establishes secure channels between nodes.
+Because P2P participants are node operators who can coordinate upgrades, a transition to new algorithms is feasible.
+% However, given current uncertainty about post-quantum algorithm maturity, we adopt a layered (hybrid) approach using X-Wing for key encapsulation.
+% This provides immediate post-quantum protection while retaining classical security as a fallback.
+% Section~\ref{s:p2p-node-communication} presents the KEM-based protocols adopted.

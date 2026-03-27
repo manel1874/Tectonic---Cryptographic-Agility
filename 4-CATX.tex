@@ -1,0 +1,127 @@
+\section{CATX}\label{s:catx}
+% \todo{How does it support future migrations?}
+\input{figures/eip1559-transaction-structure}
+
+In this section, we propose a new transaction format as traditional Ethereum transaction formats have a fundamental barrier to cryptographic agility through their deep integration of ECDSA signatures into the transaction structure~\cite{eip1559}. 
+The signature components, specifically the recovery parameter \texttt{v} and the signature values \texttt{r} and \texttt{s} (cf. Section~\ref{sec:prelims}), are directly embedded within the RLP-encoded transaction payload along with its body data (e.g., \texttt{chainId}, \texttt{nonce}) as exemplified below with EIP-1559~\cite{eip1559} (Type \texttt{0x02}):
+
+\begin{equation*}\label{eq:eip1559-tx}
+\text{Tx} = \texttt{0x02} \;\|\; 
+\mathsf{RLP}\Bigg(
+\begin{matrix}
+\texttt{chainId},\; \texttt{nonce},\; \texttt{maxTip},\; \texttt{maxFee},\; \texttt{gasLimit},\\
+\texttt{destination},\; \texttt{amount},\; \texttt{data},\; \texttt{accessList},\; 
+\texttt{v},\; \texttt{r},\; \texttt{s}
+\end{matrix}
+\Bigg).
+\end{equation*}
+
+This design creates several limitations that prevent cryptographic agility. 
+First, the transaction format assumes a public key recovery mechanism. 
+This represents a concrete case of the modularity challenge identified in Section~\ref{ss:blockchain-hurdles}: the transaction protocol is not designed to use cryptographic primitives in a black box manner, but rather depends on specific properties of ECDSA (namely, public key recovery) that are baked into the transaction structure itself.
+
+Second, the signature structure is hardcoded into the transaction serialization format, violating the modularity principle discussed before. 
+Unlike point-to-point protocols such as TLS, where cryptographic algorithms can be negotiated at runtime through ciphersuite selection, blockchain transactions must be validated by an unbounded set of distributed nodes without prior negotiation. This distributed validation requirement, as discussed in Section~\ref{ss:blockchain-hurdles}, makes runtime algorithm negotiation impractical and necessitates that the cryptographic algorithm be encoded directly in the transaction format.
+
+\subsubsection{CATX Design.}\label{subsubsec:catx-design}
+
+To address the above issues, we present cryptographically agile transactions (CATX), which introduces transaction type \texttt{0xCA} that achieves cryptographic modularity.
+As shown in Figure~\ref{fig:legacy-vs-catx}, CATX design maintains the same core transaction items and base signing object as traditional Ethereum transactions, but package it into a self-contained blob.
+The core crypto agile innovation lies in separating the transaction body from its signature, enabling independent evolution of transaction semantics and cryptographic primitives. 
+CATX structure can be described as follows:
+\begin{equation*}
+\texttt{Tx} = \texttt{0xCA} \parallel \texttt{bodyType} \parallel \mathsf{RLP}(\texttt{bodyData}) \parallel \texttt{sigType}\parallel \mathsf{RLP}(\texttt{sigData}).
+\end{equation*}
+This design choice creates four independent components: body type (\texttt{bodyType}), body data (\texttt{bodyData}), signature type (\texttt{sigType}) and signature data (\texttt{sigData}). 
+
+The body type identifies the transaction body format, allowing for multiple transaction body formats and each identified by a unique body type value (e.g., \texttt{0x02} for fee market EIP-1559 transactions). 
+The body data contains the transaction semantics (e.g., chain ID, nonce, gas parameters).
+This body type registry allows new transaction formats to be added without affecting signature handling.
+The signature type identifies the cryptographic signature algorithm, enabling pluggable cryptographic schemes. 
+This follows the crypto agility norm of algorithm identification~\cite{NIST:BCC+25}, where an identifier is used for an implementation to tell the verification peer which algorithm is being used. 
+For our experiments, we set the following algorithm identities: \texttt{0x01} for ECDSA-secp256k1, \texttt{0x02} for FALCON-512 and \texttt{0x03} for ML-DSA-44.
+Finally, the signature data contains the algorithm-specific signature material.
+For ECDSA, the signature data contains the standard three parameters (\texttt{v}, \texttt{r}, \texttt{s}). Post-quantum signatures might have support for extractable public key from a signature. 
+Depending on the signature type supported, specified by \texttt{sigType}, the verification precompile input pattern accepts two variants: $(\texttt{pubKey} \parallel \texttt{signature} \parallel \texttt{digest})$ or $(\texttt{extractableSignature} \parallel \texttt{digest})$.
+% Its important to stress that this input interface difference does not constitute a violation to API
+
+\paragraph{Message digest.}\label{para:message-digest} Post-quantum signature algorithms typically support signing messages of arbitrary length~\cite{NIST:24MLDSA}.
+At first glance, it may therefore seem natural to sign the transaction data directly.
+However, for consistency with the ECDSA-based design, we instead adopt a message-digest approach, since ECDSA only accepts 32-byte inputs.
+Concretely, under CATX the signed message is
+
+\begin{equation*}
+\texttt{digest} = \mathsf{Keccak256}\left(\texttt{bodyType} \parallel \mathsf{RLP}(\texttt{bodyData})\right).
+\end{equation*}
+This design choice offers two main advantages.
+First, it preserves compatibility with the existing ECDSA workflow, improving interoperability with current tooling, and enabling signatures to be treated as a black box.
+Second, in the presence of large transactions, signing the full message can significantly impact certain signing environments (e.g., key management systems), whereas a fixed-size digest avoids these limitations.
+
+% \danno{I would emphasize that this it is for post quantum addresses for EOAs that do not use ECDSA.}
+
+\paragraph{Address derivation.}\label{para:address-derivation} For externally owned accounts (EOAs) that do not rely on ECDSA and instead use post-quantum signature schemes, a mechanism is required to map a public key to an address.
+To support multiple signature schemes while preserving cryptographic agility and enabling smooth migration, address derivation follows a structure similar to that used for ECDSA-based accounts. 
+To separate concerns across different signature types, a signature identifier (\texttt{sigType}) is appended to the public key prior to hashing. Concretely, addresses are derived by
+
+\begin{equation*}
+\texttt{address} = \mathsf{Keccak256}\left(\texttt{sigType} \parallel \texttt{pubKey}\right).
+\end{equation*}
+
+% CATX: main section with our contributions
+
+% Multisig CATX
+% Applied in malachite
+
+% \subsection{Data availability}
+
+% \begin{itemize}
+%     \item We get rid of it. 
+%     \item Migration is a good time to evaluate if we need or not.
+% \end{itemize}
+
+% Consider the discussion commented out in the code 
+% % Hey Danno! Do you know why KZG commitments are used for Proto-Danksharding? Any special property that makes them attractive other than efficiency?[5:25 PM]Like BLS is used because of its aggregation property. Is there any property of KZG being used specially for blobs?Danno Ferrin [5:25 PM]They are used in the PeerDAS as they ahve some feature that works with Reed-Solomon error coding.[5:27 PM]This is why finding a PQ replacement is so hard, some alternatives the single blob proofs are larger than the blob itself, bringing in the "shard to save bandwidth" claim into doubt. Alternatives that can aggregate blob proofs in logrithmatic space are the one hope, but they need a fairly large load size before it really pays off.Manuel [5:27 PM]ohh I see. Just checked it out. So, this is an example where modularity is difficult[5:27 PM]okok![5:28 PM]good to know[5:28 PM]This is another reason why we are not using blobs, I assumeDanno Ferrin[5:29 PM]Yes. We would need to transition to full blob transactions and MPT proving to "quote" the section for L2 validation. PQ is quietly a bigger threat to Ethereum L2 than L1 blockchains in general.
+% % Check conversation: https://tectonic-network.slack.com/archives/D09MD0Y7D1U/p1768498505851659
+% % Give examples of where in L@ its problematic to remove. 0G needs this capability to erasure commitments
+
+\subsection{Precompiles in Execution Layer}\label{subsec:precompiles}
+
+Beyond EOAs, Ethereum supports a growing number of smart contract wallets that rely on EVM execution logic for authentication. 
+Account abstraction proposals such as ERC-4337~\cite{ref_ethereum_aa} enable smart contracts to define custom signature verification logic, opening a potential path for post-quantum cryptography: contracts could implement post-quantum signature verification directly in EVM bytecode.
+
+However, the EVM is highly inefficient for the low-level arithmetic required by post-quantum signature schemes.
+Benchmarks show that pure-EVM verification of Falcon-512 signatures consumes approximately 6.6 million gas, while ML-DSA-44 verification requires approximately 13.5 million gas~\cite{ethdilithium_repo,ethfalcon_repo}.
+
+To address this limitation, we expose post-quantum signature verification as precompiled contracts.
+The precompile interface follows the pattern established by existing Ethereum cryptographic precompiles (e.g., \texttt{ecrecover} at address \texttt{0x01}~\cite{ETH:W14}), accepting the public key, signature, and message as inputs:
+
+\begin{equation}\label{eq:precompile-interface}
+\mathsf{Verify}(\texttt{pubKey}, \texttt{signature}, \texttt{message}).
+\end{equation}
+
+The argument ordering differs from ECDSA's \texttt{ecrecover} for two reasons.
+First, post-quantum schemes do not necessarily support public key recovery from signatures, making the public key a required input.
+Second, NIST post-quantum algorithms support signing arbitrary-length messages directly~\cite{NIST:24MLDSA}, so the message appears last in the argument list to allow variable-length inputs.
+For consistency with ECDSA workflows, many implementations still sign over a hash digest, but the precompile interface accommodates both patterns.
+
+To conform with the algorithm identification principle for crypto agility, the precompile addresses align with the CATX signature type identifiers: \texttt{0xCA00xx}, where \texttt{xx} corresponds to the signature type (e.g., \texttt{0xCA0001} for ECDSA, \texttt{0xCA0002} for Falcon-512, \texttt{0xCA0003} for ML-DSA-44).
+A new ECDSA precompile is also provided at \texttt{0xCA0001} with the unified argument layout, enabling smart contracts to handle all signature types through a consistent interface.
+This design supports the \emph{selected} flexibility type: smart contract wallets can verify any supported signature algorithm, allowing users to choose their preferred scheme.% without requiring contract upgrades.
+
+% \danno{Ethereum also has a growing number of smart contract wallets that rely on EVM execution logic to support authentication. One method to support PQC would be to allow ethereum programs to provide the cryptography. However the EVM is very inefficient when it comes to the low level highly repetitive calculations needed. NIST Falcon signagutes take about 5 million gas, and standard ML-DSA-44 signatures take about 15 million gas, which is problematic considering the recent transaction gas limit of 16.7 million gas would consume all available gas.}
+
+% \danno{\begin{equation}
+% \texttt{MLDSA44VERIFY}(\texttt{pubKey} \parallel \texttt{signature} \parallel \texttt{message}).
+% \end{equation}}
+
+% \danno{For this reason we make our native EOA algorithms available to the EVM. The order of arguments differes from ECDSA. First, the public key is a required argument for verificaiton. Second, all of the current NIST algorithms support arbitrary length messages for their signatures. Because of that the message is at the end of the arguments allowing it to grow to arbitrary lengths rather than being limited to hashes (although for consistency with ECDSA many signatures are over hashes).}
+
+% \danno{The addresses of the precomplies also aligns with the signature type identifier: \texttt{0xCA00xx} where xx is the CATX signature type. A new ecdsa precompile is also provided with the new layouts to support mechanical interpretation of signatures.}
+
+% \subsection{Dormant Accounts}
+
+% For dormant accounts there will need to be protocol changes.  I have two ideas, (a) allow key migrations by putting key commitments in the account tuple. (b) finalizable EIP-7702 proxies.  For B you would need to make sure you migrate to an AA account that can handle other migrations or it is a one time migration.[10:58 PM]I was going to tackle that post-testnet possibly in the first fork after mainnet.  We need to gauge the appetite for protocol level key rotation vs. finalized 7702 migration. (edited)
+
+% \danno{Rather than dormant accounts I would call it legacy migration and point out that multiple options are being discussed across several layer ones. One is to use an EIP-7702 delegation that has been finalized and cannot be changed. Another is to attach new keys to the account and provide specific semantics within those keys indicating whether the pubkey associated with that address should be used.  Finally, for new blockchains the option exists to never support ECDSA EOA accounts, which Tectonic is considering.}
+
+% \subsection{HD accounts}

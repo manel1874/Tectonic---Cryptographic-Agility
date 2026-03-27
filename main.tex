@@ -1,0 +1,91 @@
+% This is samplepaper.tex, a sample chapter demonstrating the
+% LLNCS macro package for Springer Computer Science proceedings;
+% Version 2.21 of 2022/01/12
+%
+\documentclass[runningheads]{llncs}
+%
+\usepackage[T1]{fontenc}
+% T1 fonts will be used to generate the final print and online PDFs,
+% so please use T1 fonts in your manuscript whenever possible.
+% Other font encondings may result in incorrect characters.
+%
+\usepackage{graphicx}
+% Used for displaying a sample figure. If possible, figure files should
+% be included in EPS format.
+%
+% Enable hyperref for clickable citations and links
+\usepackage{hyperref}
+\hypersetup{
+    colorlinks=true,
+    linkcolor=blue,
+    citecolor=blue,
+    urlcolor=blue,
+}
+%
+\input{include/macros}
+
+\begin{document}
+%
+\title{Post-Quantum Blockchains with Agility in Mind}
+%
+%\titlerunning{Abbreviated paper title}
+% If the paper title is too long for the running head, you can set
+% an abbreviated paper title here
+%
+\ifanonym
+    \author{}
+\else
+    \author{
+        Manuel B. Santos \and
+        Danno Ferrin \and
+        Ron Kahat \and
+        Michael Lodder
+    }
+\fi
+%
+\ifanonym
+\else
+    \authorrunning{Santos, M. B., et al.}
+\fi
+% First names are abbreviated in the running head.
+% If there are more than two authors, 'et al.' is used.
+%
+\ifanonym
+    \institute{}
+\else
+    \institute{Tectonic Labs\\
+    \email{manuel.batalha.santos@gmail.com, \{danno,ron,mikelodder\}@tectonic.xyz}}
+\fi
+%
+\maketitle              % typeset the header of the contribution
+%
+\vspace{-7pt}
+\input{0-abstract}
+
+\input{1-intro}
+
+\input{2-prelims}
+
+\input{3-cryptographic-flexibility-in-blockchains}
+
+\input{4-CATX}
+
+\input{5-consensus}
+
+% \input{6-p2p-node-communication}
+
+\input{7-experimental-evaluation}
+
+\input{8-conclusion}
+
+\section*{Acknowledgments}
+We thank our reviewers for their helpful feedback and Léo Ducas for valuable comments.
+%
+% ---- Bibliography ----
+%
+% BibTeX users should specify bibliography style 'splncs04'.
+% References will then be sorted and formatted in the correct style.
+%
+\bibliographystyle{splncs04}
+\bibliography{cryptobib/extra, cryptobib/crypto, cryptobib/abbrev2}
+\end{document}

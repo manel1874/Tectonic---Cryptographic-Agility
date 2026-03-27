@@ -1,0 +1,98 @@
+\section{P2P Node Communication}\label{s:p2p-node-communication}
+
+The peer-to-peer (P2P) node communication layer in Ethereum's execution layer consists of two main components: the discovery protocol~\cite{ethereum_discv4} (Discv4 and Discv5) and the transport protocol~\cite{ethereum_rlpx} (RLPx). 
+The discovery phase maintains the distributed hash table (DHT) that enables nodes to find peers, while the transport protocol establishes secure communication channels between them. 
+We explore how to improve modularity within these two systems by proposing a KEM-based P2P communication layer.
+
+\subsubsection{PQC Node Identity.}\label{subsubsec:pqc-node-identity}
+
+In Ethereum, node identity $\texttt{nodeId}$ is defined by an ECDSA signature scheme. 
+It is defined by a hash of the corresponding public key. 
+More specifically, it is given by $\texttt{nodeId} = \mathsf{Keccak512}(\texttt{x}\parallel \texttt{y})$, where $\texttt{x}$ and $\texttt{y}$ are the coordinates of the ECDSA public key.
+% This design choice ties together the P2P layer with the signature scheme being used in the consensus layer, lacking modularity and therefore increasing the number of dependencies. 
+
+In our design, we propose a KEM-based system, where $\texttt{nodeId}$ is only dependent on the KEM keys used for P2P communication. 
+We substitute the 64-byte public key $\texttt{x}\parallel \texttt{y}$ by a 64-byte array $\texttt{peerId}$, computed as 
+\begin{equation}\label{eq:peer-id}
+\mathsf{Keccak512}(\texttt{ID-HASH-DOMAIN} \parallel \mathsf{pk}_\text{KEM}),
+\end{equation} 
+where \texttt{ID-HASH-DOMAIN} is a domain separator and $\mathsf{pk}_\text{KEM}$ is the KEM public key. 
+We denote it by $\texttt{peerId}$ as this is the value being used by both the discovery and handshake's transfer protocol to identify nodes. We use a hash of the \text{KEM} key instead of the entire key to ensure it is smaller than a UDP discovery packet.
+
+\subsubsection{PQC Discovery.}\label{subsubsec:pqc-discovery}
+
+
+The Discv4 discovery protocol~\cite{ethereum_discv4} enables nodes to discover peers through a Kademlia-based distributed hash table (DHT) maintained via UDP-based gossip messages.
+In the original Discv4 design, all discovery messages are signed using ECDSA to provide integrity and cryptographically bind messages to a node identity.
+Additionally, EIP-868~\cite{eip868} introduces optional Ethereum Node Records (ENRs) carrying their own ECDSA signature, distinct from the packet-level signature.
+
+We propose a KEM-based Discv4 protocol that removes both signatures and ENRs entirely.
+This design is motivated by practical constraints of post-quantum schemes: ENRs are limited to 300 bytes, and UDP discovery packets are constrained to 1280 bytes (the IPv6 minimum MTU)~\cite{rfc8200_ipv6_min_mtu}. 
+Post-quantum signature schemes such as Falcon-512 or ML-DSA would exceed these limits, as they require transmitting both the signature and the public key, since public-key recovery is typically not supported.
+Rather than fragmenting packets or restructuring ENRs to accommodate larger signatures, we adopt a simpler approach with the trade-off of deferring cryptographic identity verification to the RLPx framing phase.
+
+In our approach, instead of signing discovery gossip messages, we commit to the $\texttt{peerId}$ and the standard message payload from the original Discv4 specification using a hash function.
+More specifically, for all packets of type \texttt{packetType} and content \texttt{messageData}, the sender computes:
+\begin{equation}\label{eq:discovery-hash}
+\texttt{hash} = \mathsf{Keccak256}\big(\texttt{peerId} \parallel \texttt{packetType} \parallel \mathsf{RLP}(\texttt{messageData}) \big). 
+\end{equation}
+The sender then assembles the packet as:
+\begin{equation}\label{eq:discovery-packet}
+\texttt{packet} = \underbrace{\mathsf{hash} \parallel \texttt{peerId} \parallel \texttt{packetType}}_{\text{header}} \parallel \underbrace{ \mathsf{RLP}(\texttt{messageData})}_{\text{payload}}.
+\end{equation}
+Upon receiving a packet, a node parses its structure and verifies the hash commitment by recomputing it locally.
+
+\paragraph{Security.}\label{para:discovery-security} Recall from the previous section that the peer ID is derived from the hash of KEM public key.
+Therefore, by committing to the peer ID, the node effectively binds its identity to the message payload.  
+Moreover, integrity is also guaranteed by the collision resistance property of the hash function, given all the message content is included as input.
+
+Moreover, we stress that the real identity validation happens during the subsequent RLPx handshake phase, as an adversary can easily locally generate different keypairs, creating a large amount of fraudulent neighbor announcements~\cite{EPRINT:MarHeiGol18}. 
+The $\texttt{peerId}$ received will serve as input to the handshake phase and used to check the party executing the handshake and the discovery phases is the same. 
+
+\paragraph{Bandwidth.}\label{para:discovery-efficiency} We observe that this approach does not have any impact on bandwidth.
+In fact, the final packet size is reduced by 1 byte, since the \texttt{peerId} size is the same as the signature component $\texttt{r}\parallel \texttt{s}$ and the recovery component $\texttt{v}$ consumes one byte. 
+Moreover, we observe that the DHT structure remains unchanged as we are using the hash of the KEM public key, making it modularity independent on the KEM type being used.
+
+
+
+\input{figures/rlpx_kem}
+
+\subsubsection{PQC RLPx Connection.}\label{subsubsec:pqc-rlpx}
+
+The RLPx transport protocol~\cite{ethereum_rlpx} establishes secure communication between nodes in the execution layer.
+In its original design, RLPx relies on ECIES (Elliptic Curve Integrated Encryption Scheme) during the handshake to derive session keys for encrypted communication.
+This approach provides two security features: session key secrecy and mutual authentication.
+
+% This design exhibits limited cryptographic agility due to the tight coupling between authentication and encryption within RLPx, with no clear separation of concerns.
+% Specifically, the same key pair is used both for node signatures and for asymmetric encryption during session key establishment.
+% As a result, replacing the node signature scheme used elsewhere in the protocol stack would require a complete redesign of the RLPx handshake.
+
+Based on the discovery phase constraints, we present a black-box KEM version of RLPx.
+The resulting protocol, shown in Figure~\ref{fig:rlpx-handshake}, employs a bilateral KEM handshake in which both parties contribute shared secrets that are combined to derive the session key.
+We instantiate the protocol with X-Wing~\cite{EPRINT:BCDKSV24}, a hybrid KEM combining X25519 and ML-KEM-768.
+
+% The KEM-based RLPx handshake preserves key security properties. 
+% Shared secrets remain confidential because only the responder can decapsulate $c_\textbf{init}$ and only the initiator can decapsulate $c_\textbf{resp}$, ensuring session keys derived from them are protected. 
+% Also, forward secrecy is maintained by using fresh randomness in each KEM encapsulation, so compromising long-term keys does not reveal past session keys.
+
+% \mike{Do we want to talk about P2P in the consensus layer also? Its essentially identical to EL, but useful to call out. It doesn't use RLP and is used for PeerIds but serves the same purpose to authenticate validators to each other}
+
+\paragraph{Security.}\label{para:rlpx-security}
+The KEM-based RLPx handshake provides key secrecy between the identity owners of the long-term public keys.
+From IND-CCA security of the underlying KEM an adversary (eavesdropper or man-in-the-middle) cannot derive the intermediate secret $k_{\text{init}}$ without access to the corresponding KEM private key $\mathsf{sk}_{\text{resp}}$.
+This prevents the adversary from computing $s_\text{shared}$.
+We note that, by avoiding the use of signatures, the authentication is deferred to the encrypted frame phase as both parties do not have a guarantee protocol completion which provides no proof-of-possession of secret key at handshake time.  
+Upon a successfully encrypted frame exchange, parties then verify successful completion of the proposed handshake.
+
+% \noindent\textbf{Forward secrecy consideration.} The bilateral KEM design uses long-term keys for encapsulation. If a long-term private key is later compromised, an attacker who recorded past ciphertexts can recover the corresponding shared secrets. To achieve forward secrecy, the protocol could be extended with ephemeral KEM key pairs, where long-term signature keys authenticate the ephemeral public keys. We leave this enhancement for future work.
+
+
+\subsubsection{Consensus Layer.}\label{subsubsec:consensus-p2p}
+
+Similarly to the execution layer, Tendermint-based consensus already maintains separation of concerns between cryptographic keys: the consensus key signs votes and proposals, while a separate node key establishes P2P identity~\cite{tendermint_p2p_spec,tendermint_consensus_spec}.
+This modularity simplifies post-quantum migration at the consensus layer.
+Furthermore, validator peer identities are derived from chain state (the validator set), eliminating the need for a discovery protocol as validators know their peers directly from the finalized blocks.
+
+The consensus handshake follows the Station-to-Station (STS)~\cite{DCC:DifvOoWie92} protocol, where nodes generate ephemeral X25519 key pairs and use Diffie-Hellman key exchange, with signatures providing mutual authentication.
+This can be replaced with an authenticated KEM-based approach analogous to the execution layer.
+The key difference is that KEM key pairs are ephemeral (generated per session), while the signature key pair authenticates the ephemeral KEM public keys. Since the signature scheme is directly tied to its communication layer \texttt{peerId} through its public key, it provides the same mutual authentication guarantees as STS.

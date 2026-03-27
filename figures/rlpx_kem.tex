@@ -1,0 +1,59 @@
+\begin{figure*}[!t]
+\begin{tcolorbox}[
+    enhanced jigsaw, 
+    colframe=Black!90!white, colback=white, colbacktitle=Black!10!white, coltitle=Black, fonttitle=\bfseries,
+    fontupper=\small,
+    fontlower=\small,
+    left=1pt,          % left padding
+    right=1pt,         % right padding
+    top=1pt,           % top padding
+    bottom=1pt         % bottom padding
+]
+This protocol runs between an \emph{initiator} and a \emph{responder} node. The protocol establishes a secure communication channel using a KEM-based key exchange that replaces the traditional ECIES-based RLPx handshake.
+
+\smallskip
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Initiator:} Long-term KEM keypair $(\mathsf{pk}_{\text{init}}, \mathsf{sk}_{\text{init}})$. Knows the responder's peer identifier $\texttt{peerID}$ from the discovery phase.
+    
+    \item \textbf{Responder:} Long-term KEM keypair $(\mathsf{pk}_{\text{resp}}, \mathsf{sk}_{\text{resp}})$. 
+\end{itemize}
+
+\smallskip
+\noindent{\sc Handshake Phase:}
+\begin{enumerate}[leftmargin=*]
+\renewcommand{\labelenumi}{\arabic{enumi}.}
+    \item The initiator establishes a TCP connection to the responder.
+    
+    \item The responder sends their public key $\mathsf{pk}_{\text{resp}}$.
+    
+    \item The initiator computes $id = \mathsf{Keccak512}(\texttt{ID-HASH-DOMAIN} \parallel \mathsf{pk}_{\text{resp}})$ and checks if $id = \mathsf{peedID}$. Otherwise, abort.    
+    
+    \item The initiator performs KEM encapsulation, $(c_{\text{init}}, k_{\text{init}}) \leftarrow \mathsf{KEM.Encap}(\mathsf{pk}_{\text{resp}})$, generates a random nonce $n_{\text{init}}\overset{\$}{\leftarrow} \{0,1\}^{256}$ and sends the \texttt{auth} message $$\texttt{auth} = pk_{\text{init}} \parallel c_{\text{init}} \parallel n_{\text{init}}.$$
+    
+    \item The responder receives the \texttt{auth} message, performs KEM decapsulation $k_{\text{init}} \leftarrow \mathsf{KEM.Decap}(\mathsf{sk}_{\text{resp}}, c_{\text{init}})$ and performs KEM encapsulation with the initiator's public key, $(c_{\text{resp}}, k_{\text{resp}}) \leftarrow \mathsf{KEM.Encap}(\mathsf{pk}_{\text{init}})$.
+    
+    \item The responder generates a random nonce $n_{\text{resp}}\overset{\$}{\leftarrow} \{0,1\}^{256}$ and sends the \texttt{ack} message $\texttt{ack} = c_{\text{resp}} \parallel n_{\text{resp}}$.
+    
+    \item The initiator receives the ACK message and performs KEM decapsulation $k_{\text{resp}} \leftarrow \mathsf{KEM.Decap}(\mathsf{sk}_{\text{init}}, c_{\text{resp}})$.
+\end{enumerate}
+
+\smallskip
+\noindent{\sc Key Derivation Phase:}
+\begin{enumerate}[leftmargin=*]
+\renewcommand{\labelenumi}{\arabic{enumi}.}
+    \setcounter{enumi}{10}
+    \item Both parties compute the key material $k = k_{\text{init}} \parallel k_{\text{resp}}$ and the nonce hash $h = \mathsf{Keccak256}(n_{\text{init}} \parallel n_{\text{resp}})$. 
+    Then, they derive the session keys as follows:
+    \begin{align*}
+    s_\text{shared} &= \mathsf{Keccak256}(k \parallel h) \\
+    s_\text{aes}  &= \mathsf{Keccak256}(k \parallel s_\text{shared} ) \\
+    s_\text{mac}  &= \mathsf{Keccak256}(k \parallel s_\text{aes} ),
+    \end{align*}
+    where $s_\text{shared}$, $s_\text{aes}$ and $s_\text{mac}$ are the shared secret, AES secret and MAC secret, respectively.
+\end{enumerate}
+\end{tcolorbox}
+\vspace{-0.2in}
+\caption{RLPx handshake protocol with KEM-based key exchange. The protocol uses a bilateral KEM handshake where both parties contribute shared secrets, which are then combined to derive session keys.}
+\label{fig:rlpx-handshake}
+\vspace{-0.1in}
+\end{figure*}

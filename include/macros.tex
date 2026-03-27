@@ -1,0 +1,101 @@
+% New packages
+\usepackage{lipsum}
+\usepackage[dvipsnames]{xcolor}
+\usepackage{tikz}
+\usetikzlibrary{positioning, shapes.geometric, arrows.meta, fit, backgrounds, calc, patterns}
+\usepackage{pgfplots}
+\usepgfplotslibrary{fillbetween}
+\pgfplotsset{compat=1.18}
+\usepackage[most]{tcolorbox}
+\usepackage{enumitem}
+\usepackage{booktabs}
+
+% if statements
+\newif\ifdraft
+\drafttrue
+\newif\ifanonym
+\anonymfalse
+
+% Define colors (exact RGB values from matplotlib)
+\definecolor{ecdsa_band}{RGB}{70,130,180}    % steelblue
+\definecolor{ecdsa_line}{RGB}{0,0,139}      % darkblue
+\definecolor{falcon_band}{RGB}{240,128,128} % lightcoral
+\definecolor{falcon_line}{RGB}{139,0,0}     % darkred
+\definecolor{mldsa_band}{RGB}{144,238,144}  % lightgreen
+\definecolor{mldsa_line}{RGB}{0,100,0}      % darkgreen
+
+% New commands
+\newcommand{\todotemplate}[3]{%
+    \mbox{}% prevent marginpar from being on previous paragraph
+    \marginpar{%
+        \colorbox{#2!80!black}{\textcolor{white}{\scriptsize #1}}%
+        \vspace*{-22pt}% hack!
+    }%
+    \textcolor{#2}{{#3}}%
+}
+
+% FIXME
+\ifdraft
+  \newcommand{\fixme}[1]{%
+    \noindent
+    \colorbox{yellow}{\scriptsize\textbf{FIXME}}\,
+    \textbf{\textcolor{Maroon}{#1}}%
+  }
+\else
+  \newcommand{\fixme}[1]{} % disappears
+\fi
+
+% TODO
+\ifdraft
+  \newcommand{\todo}[1]{%
+    \todotemplate{TODO}{Maroon}{#1}
+  }
+\else
+  \newcommand{\todo}[1]{}
+\fi
+
+% Danno
+\ifdraft
+    \newcommand{\danno}[1]{
+      \noindent 
+      \colorbox{SkyBlue} {\scriptsize DANNO}
+      {\bf}\textcolor{SkyBlue}{#1}{\bf} 
+      %\newline 
+    }
+\else
+    \newcommand{\danno}[1]{}
+\fi
+
+% Manuel
+\ifdraft
+    \newcommand{\manuel}[1]{
+      \noindent 
+      \colorbox{Peach} {\scriptsize MANEL}
+      {\bf}\textcolor{Peach}{#1}{\bf} 
+      %\newline 
+    }
+\else
+  \newcommand{\manuel}[1]{}
+\fi
+
+% Ron
+\ifdraft
+    \newcommand{\ron}[1]{
+      \noindent 
+      \colorbox{ForestGreen} {\scriptsize RON}
+      {\bf}\textcolor{ForestGreen}{#1}{\bf} 
+      %\newline 
+    }
+\else
+  \newcommand{\ron}[1]{}
+\fi
+\ifdraft
+    \newcommand{\mike}[1]{
+      \noindent 
+      \colorbox{OrangeRed} {\scriptsize MIKE}
+      {\bf}\textcolor{OrangeRed}{#1}{\bf} 
+      %\newline 
+    }
+\else
+  \newcommand{\mike}[1]{}
+\fi

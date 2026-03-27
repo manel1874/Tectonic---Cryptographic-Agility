@@ -1,0 +1,99 @@
+\begin{figure}[!t]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tikzpicture}[
+    >=Latex,
+    lane/.style={thick},
+    phase/.style={dashed},
+    box/.style={draw, minimum width=2.8cm, minimum height=0.9cm, align=center},
+    govbox/.style={box, fill=blue!10},
+    valbox/.style={box, fill=brown!12},
+    arrow/.style={->, thick, draw=black!30},
+    labelbox/.style={fill=white, inner sep=2pt}
+]
+
+%------------------------------------------------
+% Lanes
+%------------------------------------------------
+\coordinate (g0) at (0,4);
+\coordinate (v10) at (0,2.5);
+\coordinate (v20) at (0,1.5);
+\coordinate (v30) at (0,0.5);
+
+\draw[lane] (0,4) -- (14.5,4);
+\draw[lane] (0,2.5) -- (14.5,2.5);
+\draw[lane] (0,1.5) -- (14.5,1.5);
+\draw[lane] (0,0.5) -- (14.5,0.5);
+
+%------------------------------------------------
+% Phase separators
+%------------------------------------------------
+\draw[phase] (0.5,0) -- (0.5,5);
+\draw[phase] (4,0) -- (4,5);
+\draw[phase] (7.5,0) -- (7.5,5);
+\draw[phase] (11,0) -- (11,5);
+\draw[phase] (14.5,0) -- (14.5,5);
+
+% Phase titles
+\node at (2.25,4.7) {Proposal};
+\node at (5.75,4.7) {Registration};
+\node at (9.25,4.7) {Readiness Check};
+\node at (12.75,4.7) {Activation};
+
+
+%------------------------------------------------
+% Left labels
+%------------------------------------------------
+\node[govbox, anchor=east] at (0,4) {Governance};
+\node[valbox, anchor=east] at (0,2.5) {Validator 1};
+\node[valbox, anchor=east] at (0,1.5) {Validator 2};
+\node[valbox, anchor=east] at (0,0.5) {Validator $n$};
+
+%------------------------------------------------
+% Background arrows (behind text)
+%------------------------------------------------
+\begin{pgfonlayer}{background}
+
+% From proposal to validators
+\draw[arrow] (0.5,4) -- (4,2.5);
+\draw[arrow] (0.5,4) -- (4,1.5);
+\draw[arrow] (0.5,4) -- (4,0.5);
+
+% PendingSchemeUpgrade fan-out
+\draw[arrow] (4,2.5) -- (7.5,4);
+\draw[arrow] (4,1.5) -- (7.5,4);
+\draw[arrow] (4,0.5) -- (7.5,4);
+
+% From readiness to activation end
+\draw[arrow] (11,4) -- (14.5,2.5);
+\draw[arrow] (11,4) -- (14.5,1.5);
+\draw[arrow] (11,4) -- (14.5,0.5);
+
+\end{pgfonlayer}
+
+%------------------------------------------------
+% Text labels ABOVE arrows
+%------------------------------------------------
+\node[labelbox] at (2.25,3) {\small{\texttt{PendingSchemeUpgrade}}};
+\node[labelbox] at (5.75,3) {\small{\texttt{KeyRegistrationTx}}};
+
+% Curved readiness check arrow
+\draw[<-, thick, draw=black!30]
+  (9.95,4) arc[start angle=0, end angle=-180, radius=0.7];
+\draw[<-, thick, draw=black!30]
+  (9.95,2.5) arc[start angle=0, end angle=-180, radius=0.7];
+\draw[<-, thick, draw=black!30]
+  (9.95,1.5) arc[start angle=0, end angle=-180, radius=0.7];
+
+\node[text=black!30] at (2.25,0) {Height $< H$};
+\node[text=black!30] at (5.75,0) {Height $< H$};
+\node[text=red!30] at (9.25,0) {Height $H-1$};
+\node[text=red!30] at (12.75,0) {Height $H$};
+
+\node[font=\tiny, fill=red!20, draw=black!70, minimum width=1.8cm, minimum height=0.3cm] at (9.25,2.9) {Threshold $> 2/3$?};
+
+\end{tikzpicture}
+}%
+\caption{Consensus layer upgrade mechanism. Governance proposes a scheme change at future height $H$. Validators register new keys via \texttt{KeyRegistrationTx}. At height $H-1$, the protocol checks if sufficient voting power has registered. At height $H$, the scheme activates and unregistered validators are excluded.}
+\label{fig:consensus-upgrade-flow}
+\end{figure}

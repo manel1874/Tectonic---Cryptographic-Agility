@@ -1,0 +1,155 @@
+\section{Experimental Evaluation}\label{s:experiments}
+
+We developed a Layer-1 implementation with CATX integrated as described above. 
+It combines \texttt{malachite} BFT consensus engine~\cite{malachite_repo} with Ethereum's \texttt{reth} execution client~\cite{reth_repo}.
+It provides EVM compatibility with CATX supporting ECDSA, Falcon-512, and ML-DSA-44.
+All experiments and benchmarks were run in a local 3 node network on an Apple M3 Max with 36 GiB of memory. 
+We also measured SLH-DSA~\cite{NIST:24SLH} variants (SHAKE-128f and SHAKE-128s), but report them only in microbenchmarks. In end-to-end experiments, SHAKE-128f began to degrade around 200~TPS and failed at 300~TPS, while SHAKE-128s sustained only about 16 TPS and proved impractical to benchmark locally due to its 8{,}576$\times$ higher signing cost compared to ECDSA.
+
+In this section, we evaluate the impact of post-quantum signatures on the blockchain performance. 
+Our evaluation spans over 30{,}000 blocks and 11 million transactions under sustained load, enabling analysis of steady-state behavior. 
+Under these conditions, throughput is limited by three resources: (1)~\emph{CPU}, when verification time approaches the 12\,s slot limit~\cite{ETH:W14}; (2)~\emph{gas}, when the block gas limit is reached; and (3)~\emph{block size}, when the block size cap is hit. 
+Identifying the active bottleneck is essential to explain performance differences across signature schemes. 
+We begin with microbenchmarks of the cryptographic primitives to isolate the effects of computation, transaction size, and network propagation on overall performance.
+
+
+\subsection{Signatures Microbenchmarks}\label{subsec:crypto-primitives}
+
+We start by establishing a computational baseline through isolated benchmarks.
+Table~\ref{tab:crypto-ops} reports key generation, signing, and verification times for ECDSA and post-quantum schemes Falcon-512, ML-DSA-44 and SLH-DSA for SHAKE-128f and SHAKE-128s variants.
+% \vspace{-20pt}
+% \begin{table}[htbp]
+% \centering
+% \caption{Median of cryptographic operation performance ($\mu$s) using Rust crate \texttt{criterion}~\cite{criterion_rs} with 100 samples and 5-second measurement periods.}
+% \label{tab:crypto-ops}
+% \setlength{\tabcolsep}{8pt}
+% \begin{tabular}{@{}lrrr@{}}
+% \toprule
+% \textbf{Algorithm} & \textbf{Key gen.} & \textbf{Signing} & \textbf{Verification}  \\
+% \midrule
+% ECDSA & 34.3 & 49.1 & 54.7  \\
+% Falcon-512 & 4,386 & 127.7 & \textbf{19.9} \\
+% ML-DSA-44 & 40.0 & 179.3 & \textbf{43.1} \\
+% \bottomrule
+% \end{tabular}
+% \end{table}
+
+
+
+\begin{table}[htbp]
+    \centering
+    \caption{Public key and signature sizes (bytes) and median cryptographic operation performance ($\mu$s) using Rust crate \texttt{criterion}~\cite{criterion_rs} with 100 samples and 5-second measurement periods. Values in parentheses are relative to ECDSA.}
+    \label{tab:crypto-ops}
+    \setlength{\tabcolsep}{8pt}
+    \resizebox{\linewidth}{!}{%
+    \begin{tabular}{@{}lrrr@{\hspace{10pt}}rrr@{}}
+    \toprule
+    & \multicolumn{3}{c}{\textbf{Sizes (B)}} & \multicolumn{3}{c}{\textbf{Latency $\mu$s}} \\
+    \cmidrule(lr){2-4}\cmidrule(lr){5-7}
+    \textbf{Scheme} & \textbf{Public Key} & \textbf{Signature} & \textbf{Total} & \textbf{Key Gen.} & \textbf{Sign} & \textbf{Verify} \\
+    \midrule
+    ECDSA & 33 & 65 & 98 & 31 & 45 & 51 \\
+    Falcon-512 & 897 & 666 & 1{,}563 (16.0$\times$) & 4{,}035 & 119\,(2.6$\times$) & \textbf{18\,(0.4$\times$)} \\
+    ML-DSA-44 & 1{,}312 & 2{,}420 & 3{,}732 (38.1$\times$) & 37 & 165\,(3.7$\times$) & \textbf{40\,(0.8$\times$)} \\
+    SLH-DSA-128f & 32 & 17{,}088 & 17{,}120 (175$\times$) & 808 & 19{,}185\,(426$\times$) & 1{,}154\,(23$\times$) \\
+    SLH-DSA-128s & 32 & 7{,}856 & 7{,}888 (80.5$\times$) & 49{,}985 & 385{,}903\,(8{,}576$\times$) & 371\,(7.3$\times$) \\
+    \bottomrule
+    \end{tabular}
+    }
+\end{table}%
+
+
+% \vspace{-10pt}
+We observe that for both Falcon-512 and ML-DSA-44 schemes, signature verification -- the dominant cryptographic operation executed by the validating nodes -- is faster than ECDSA~\cite{ESORICS:KARR25}.
+% Falcon-512 achieves a 2.75$\times$ reduction relative to ECDSA, while ML-DSA-44 achieves a 1.27$\times$ reduction.
+These measurements indicate that post-quantum verification does not introduce a computational bottleneck for these two schemes.
+On the other hand, both SLH-DSA variants exceed the verification latency between 7$\times$  and 23$\times$.
+
+Signing costs are higher for all post-quantum schemes, where the SLH-DSA variant optimized for size being the most affected (8{,}576$\times$).
+However, signing occurs off-chain and, therefore, does not affect consensus throughput.
+In addition, key generation is a one-time account initialization cost, which is amortized over its lifetime without affecting performance.
+
+In contrast, signature and public key sizes differ by more than two orders of magnitude across schemes and have a direct effect on transaction size and block utilization.
+Table~\ref{tab:crypto-ops} summarizes these size differences as well.
+% % \vspace{-2pt}
+% \begin{table}[htbp]
+% \centering
+% \caption{Signature and public key sizes in bytes B.}
+% \label{tab:sig-sizes}
+% \setlength{\tabcolsep}{8pt}
+% \begin{tabular}{@{}lrrrl@{}}
+% \toprule
+% \textbf{Algorithm} & \textbf{Public key} & \textbf{Signature} & \textbf{Total} & \textbf{Overhead} \\
+% \midrule
+% ECDSA & 65~B & 65~B & 130~B & 1.0$\times$ \\
+% Falcon-512 & 897~B & 666~B & 1,563~B & \textbf{12.0$\times$} \\
+% ML-DSA-44 & 1,312~B & 2,420~B & 3,732~B & \textbf{28.7$\times$} \\
+% \bottomrule
+% \end{tabular}
+% \end{table}
+% \vspace{-10pt}
+
+\subsection{Gas Computation}
+
+As mentioned before, gas costs have an impact on blockchain throughput. 
+These are computed from three components: (1)~intrinsic gas, a base cost of 21,000~gas per transaction; (2)~data gas, charged at 4~gas per zero byte~\cite{ETH:W14} and 16~gas per non-zero byte~\cite{EIP2028} in transaction data; and (3)~execution gas, for operations like signature verification via precompiles.
+
+For signature verification, ECDSA uses a fixed 3,000~gas precompile cost~\cite{ETH:W14}, while post-quantum schemes use base costs plus per-message length charges: Falcon-512 requires 1,300~gas base plus 12~gas per 32-byte word of message data, and ML-DSA-44 requires 2,800~gas base plus 12~gas per word.
+These execution gas parameters are derived by scaling proportionally to measured signature verification times, using ECDSA as the reference.%, ensuring gas reflects actual computational work.
+
+\subsection{CATX Impact}\label{subsec:tx-impact}
+
+We next evaluate CATX transactions (cf. Section~\ref{s:catx}) under sustained load to quantify end-to-end throughput. 
+
+We first investigate the transaction sizes and the gas threshold at which blocks become constrained by the 8~MB block size rather than by the gas or CPU limit, reported in Table~\ref{tab:tx-sizes}.
+\begin{table}[htbp]
+\centering
+\caption{Transaction sizes and gas at 8 MB block size limit. B: billion; M: million.}
+\label{tab:tx-sizes}
+\setlength{\tabcolsep}{8pt}
+\begin{tabular}{@{}lrrl@{}}
+\toprule
+\textbf{Type} & \textbf{TX size} & \textbf{Data-limited at} & \textbf{Practical impact} \\
+\midrule
+Legacy\footnotemark & 121~B & 1.456~B gas & Never data-limited \\
+Falcon-512 & 1,622~B & 108.6~M gas & $\sim$2$\times$ current Ethereum config. \\
+ML-DSA-44 & 3,790~B & 46.5~M gas & Below 60~M target \\
+\bottomrule
+\end{tabular}
+\end{table}
+We observe that ECDSA transactions remain far below the data-limited regime under any realistic gas configuration.
+Falcon-512 approaches data saturation only at approximately twice the current Ethereum gas limits (45~M~\cite{eth_gas_limit_45M_2025}).
+In contrast, ML-DSA-44 becomes data-limited within the range of existing Ethereum target parameters (60~M~\cite{eth_gas_limit_60M_2025}), indicating that block size, not gas or CPU, becomes the constraint.
+\footnotetext{The results for CATX ECDSA and legacy transactions are reported to be equivalent.}
+
+Next, we present the resulting throughput measurements in Table~\ref{tab:throughput}, allowing us to identify the dominant bottleneck for each transaction type.
+% \vspace{-10pt}
+\begin{table}[htbp]
+\centering
+\caption{Transactions per second (TPS), gas and block size consumption, and the primary performance bottleneck for legacy \texttt{0x02} and CATX transaction types.}
+\label{tab:throughput}
+\setlength{\tabcolsep}{5pt}
+\begin{tabular}{@{}lrrrrrr@{}}
+\toprule
+\textbf{Type} & \textbf{Peak TPS} & \textbf{Sustained TPS} & \textbf{Gas\%} & \textbf{Size\%} & \textbf{Bottleneck} \\
+\midrule
+Legacy & 4,021 & 3,963 & 19\% & 1\% & CPU \\
+ECDSA & 4,032 & 3,964 & 22\% & 2\% & CPU \\
+Falcon-512 & 3,730 & 1,625~B & 78\% & 72\% & Mixed \\
+ML-DSA-44 & 2,210 & 3,794~B & 46\% & \textbf{100\%} & \textbf{Block size} \\
+\bottomrule
+\end{tabular}%
+\end{table}
+% \vspace{-10pt}
+% Figure~\ref{fig:tps-comparison} visualizes these results.
+The CATX transaction format introduces no measurable overhead: ECDSA achieves the same throughput as legacy EIP-1559 transactions, with both ultimately limited by the slot time. 
+Falcon-512 maintains high throughput despite significantly larger signatures, operating near the transition between gas- and size-limited regimes. 
+In contrast, ML-DSA-44 exhibits lower throughput because blocks reach the 8~MB size limit before exhausting the available gas.
+
+This behavior arises from the fact that overall transactions per second (TPS) is directly determined by transactions per block (TPB) and blocks per second (BPS): $\text{TPS}=\text{TPB}\times\text{BPS}$. 
+At the extreme, although ML-DSA-44 accommodates more transactions per block due to larger block sizes, the slower block production rate dominates, yielding lower net TPS. 
+Figure~\ref{fig:block-size-impact} highlights the negative correlation between block size and block production rate across all evaluated signature schemes. 
+Hence, faster cryptographic verification does not translate into higher system throughput once block propagation becomes the limiting factor.
+
+For completeness, exploratory end-to-end runs with SLH-DSA showed that SHAKE-128f reached only around 200~TPS, whereas SHAKE-128s was not practical to benchmark because signing is 8{,}576$\times$ slower than ECDSA.
+\input{figures/block-size-bps}

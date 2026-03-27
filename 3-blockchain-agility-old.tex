@@ -1,0 +1,139 @@
+\section{Cryptographic Flexibility in Blockchains}
+
+Cryptographic agility (CA) is a design principle that enables systems to adapt their cryptographic algorithms over time without disrupting their live functioning or requiring fundamental architectural changes~\cite{NIST:BCC+25}. 
+In this section, we introduce the set of principles established by NIST Cybersecurity White Paper (CSWP) 39~\cite{NIST:BCC+25} to enable effective CA and highlight the blockchain hurdles in adopting those. 
+Then, we present a two-axis model for CA in blockchain design as a working framework to explore different alternatives to achieve different CA principles.
+
+\subsection{Blockchain Hurdles}\label{ss:blockchain-hurdles}
+
+The NIST Cybersecurity White Paper (CSWP) 39~\cite{NIST:BCC+25} establishes a set of principles that enable effective cryptographic agility. 
+Among others, it stresses the need for algorithm identification through ciphersuite negotiation and naming conventions; modularity that separates cryptographic algorithms from application logic, enabling algorithms to be treated as interchangeable components; policy and mechanism separation that allows cryptographic policies to be stored in configuration files rather than hard-wired in source code; and mechanisms for preserving interoperability during transitions. Additionally, systems must handle the deployment of algorithm transitions, which can take years when new infrastructure is required, and manage cryptographic keys associated with deprecated algorithms through proper key expiration and revocation procedures.
+
+While the NIST principles provide a foundation for cryptographic agility in traditional systems, each concept faces unique challenges when applied to blockchain environments. 
+More specifically, ciphersuite negotiation, which works effectively in point-to-point protocols like TLS~\cite{}, becomes impractical among an unbounded number of distributed nodes. 
+Modularity is limited when protocols depend on algorithm-specific properties rather than using cryptography as black-box. 
+For instance, KZG~\cite{} commitments are tied to specific data types, and BLS~\cite{} signatures are chosen specifically for their aggregation properties, making drop-in replacements non-trivial.
+Moreover, preserving interoperability presents asymmetric challenges between blockchain entities. 
+Validators may have incentives to transition quickly (as demonstrated by the rapid patching of the CVE-2018-17144 vulnerability within days~\cite{}), but externally owned account (EOA) users might not update in time, and legacy wallets may remain incompatible with new cryptographic schemes. 
+However, even for validators, hardware adoption presents significant barriers.
+Many hardware security modules (HSMs) lack support for certain post-quantum algorithms (e.g., Falcon), and operational constraints such as long HSM purchasing and refresh cycles can slow down cryptographic migration, making it necessary to support multiple signature schemes to accommodate different business and hardware timelines.
+Key lifecycle management is particularly problematic in blockchains, where addresses serve as long-lived identities tied to deprecated algorithms, making key expiration and revocation difficult to implement without disrupting user accounts. 
+Finally, deploying algorithm transitions in consensus scenarios is more complex than in centralized systems/
+Indeed, not all nodes upgrade simultaneously, making it difficult to determine which nodes are honest, potentially leading to forks and increased vulnerability to 51\% attacks during transition periods. 
+
+% \subsection{Hurdles of Crypto-Agility}
+
+% Identify the hurdles in crypto-agility for blockchains and the difference on how that applies to other protocols. Map the concepts from Section~\ref{ss:crypto-agility-concepts} and describe its issues in blockchains.
+
+% \begin{itemize}
+%     \item Ciphersuite negotiation (e.g., in TLS, or as mentioned in : its impractical to negotiate a cryptographic algorithm among an unbounded number of nodes for validation in a distributed system (give examples). Blockchains are very different in nature to point-to-point negotiations.
+%     \item Modularity: this is only possible when protocols are used in a blackbox manner. However, in some blockchian use-cases the protocol is dependent on the data type (KZG) or signature property (BLS for aggregation) making its transition with a drop-in replacement less trivial. 
+%     \item Preserving interoperability: in validators that may be mitigated because there is an incentive to transition, but EOA users might not update in time. What about previous wallets? 
+%     \begin{itemize}
+%         \item Example of CVE-2018-17144 vulnerability which was patched within days since nodes had an incentive to take action.
+%     \end{itemize}
+%     \item Cryptographic keys associated with a particular deprecated algorithm (we need to control key expiration and key revocation)
+%     \item Deploying updated software at distributed nodes (deployment of algorithm transitions). In a consensus scenario
+%     \begin{itemize}
+%         \item More difficult to know which nodes are honest, since not all nodes upgrade at the same time. This may lead to a fork and blockchain gets more fragile at a 51\% attack.
+%     \end{itemize}
+% \end{itemize}
+
+% Because of the above, in order to preserve crypto-agility in blockchains we need a tailored approach.
+
+% \subsubsection{Adoption trade-offs}
+
+% Where is CA more valuable? In the accounts vs nodes:
+% \begin{itemize}
+%     \item easier to upgrade cryptography on the nodes
+%     \item Much harder to migrate or change cryptographic schemes for accounts as Long-lived identities increase friction
+%     \item There's a mixed reception to address migration vs. new account usage, mostly from the privacy crowd.
+%     \item Reference the discussion from NIST whitepaper 39 on incentives for migration
+% \end{itemize}
+
+% HSM and Operational Constraints for node acceptance:
+% \begin{itemize}
+%     \item HSM support
+%     \begin{itemize}
+%         \item Many HSMs do not support Falcon
+%         \item ML-DSA is supported
+%         \item XMSS is generally not supported by HSMs
+%     \end{itemize}
+%     \item Upgrade cycles
+%     \begin{itemize}
+%         \item HSMs are often on long purchasing / refresh cycles
+%         \item Operational constraints slow down cryptographic migration
+%         \item Allowing multiple signature schemes enables systems to adapt to different business and hardware timeline
+%     \end{itemize}
+% \end{itemize}
+
+
+% From: https://eprint.iacr.org/2025/1626.pdf Section 4.2 
+
+% \subsection{Agility Requirements}
+
+% From https://eprint.iacr.org/2025/1626.pdf, section 5.4
+
+
+\subsection{Two-axis model}
+
+The challenges outlined in Section~\ref{ss:blockchain-hurdles} demonstrate the issues raising from blockchain systems adopting traditional cryptographic agility principles.
+Blockchain needs to accommodate different building blocks, such as consensus layer, execution layer, different P2P protocols and transaction formats that tightly bind cryptographic choices. 
+Hence, cryptographic agility in blockchains is best understood as a design space of migration strategies to different layers, rather than a single migration path to all.
+
+To reason about this design space, we propose a two-axis classification framework that captures the design decisions for cryptographic transitions in different blockchain layers. 
+The framework separates two orthogonal concerns: (i) how transitions unfold over time, and (ii) how algorithm choice is determined and how many algorithms can coexist.
+This distinction allows us to compare migration paths across different blockchain components and to identify which agility principles are feasible under consensus constraints.
+
+\danno{Transitions isn't working as well as I initially thought. Really it is talking about the users of the chain and how they experience it instead of the actual program and cryptography itself.  CATX could exist on all three layers depending on who you are.  Perhaps shift it to "two perspectives" and have one section talk about these users and their experiences. End users and their choice of wallets are a good example of how tings need to be modular, some support the newest transction types while some are only using the legacy types.}
+
+\subsubsection{Transition Axis.} The first axis characterizes how a blockchain system transitions from one cryptographic algorithm to another over time. 
+We consider three transition systems, which we expand below: forked, overlapped, or modular. 
+
+
+\begin{itemize}
+    \item \emph{Forked.} A forked transition replaces one algorithm with another at a single protocol upgrade point and all participants must adopt the new algorithm simultaneously to maintain consensus, requiring strong coordination.
+    \item \emph{Overlapped.} An overlapped transition introduces a new algorithm while continuing to support the old on for a limited period. 
+This provides a migration window for participants to upgrade gradually, but introduces complexity in handling both algorithms during the overlap and requires a clear deprecation policy.
+    \item \emph{Modular.} A modular transition treats cryptographic algorithms as extensible components that may be added or removed over time.
+ This maximizes long-term agility but requires robust algorithm identification mechanisms and increases implementation complexity.
+\end{itemize}
+
+\subsubsection{Flexibility Axis.} The second axis describes who determines which cryptographic algorithms are used in a given interaction, capturing the distribution of control. 
+We consider four approaches: singular, layered, negotiated and selected.
+
+\begin{itemize}
+    \item \emph{Singular.} The singular approach imposes exactly one algorithm at any point in time. 
+    \item \emph{Layered.} A layered approach applies multiple algorithms in sequence, requiring all layers to fail for security to be compromised. 
+    This is the approach taken by hybrid cryptography which mitigates cryptographic uncertainty during algorithm transitions.
+    \item \emph{Negotiated.}
+    A negotiated approach allows interacting parties to mutually agree on an algorithm from an allowed set. 
+    Although this is a common approach in point-to-point protocols, negotiation is difficult to generalize in decentralized systems.
+    \item \emph{Selected.}
+    A selected approach allows on party to choose an algorithm from an allowed set, shifting flexibility to the edge.
+\end{itemize}
+
+\danno{So perhaps we don't have the componets on two axes, move the transition axis to it's own subsection and just talk about the specific compnents and talk about where they sit on the flexibility spectrum.  CATX - Modular, P2P channel encryption is moving to layered/hybrid with XWing (both EL and CL). Consensus moved to a new singular mechanism (falcon instead of ecdsa sigs) but could support selected where multiple key algos are valid. This may be the palce to state we are not proposing a solution to Blobs, but it is expected it could be a form of a negotiated option where posters pick one of the encryption methods, if multiple exist, and then the block builder handles the second half of the negotiation by deciding to include the blob or not.}
+
+\subsubsection{Mapping to Blockchain Components.} 
+Based on the two-axis model, we can address different blockchain components separately, each exhibiting different cryptographic agility properties. 
+We consider the following building blocks: transaction mechanism, execution layer, consensus layer and the peer-to-peer communication.
+
+Our design proposes that the execution layer and the underlying transaction mechanism support a modular system and a selected approach.
+This is enabled by the proposed CATX transaction format (cg. Section~\ref{s:catx}) as the format encodes algorithm identifiers and allow senders to opt into new schemes without disrupting global consensus.
+We introduce a consensus layer that is forked and singular, simplifying the mechanism to reach consensus. 
+We stress that this choice does not invalidate upgrade and migration as we show in Section~\ref{ss:cryptographic-agile-consensus} by proposing a migration mechanism for the consensus protocol. 
+The peer-to-peer layer follows a forked transition system and, depending on the protocol, we either apply a layered (e.g., X-Wing) or singular approach (cf. Section~\ref{s:p2p-node-communication}).  
+% Figure~\ref{} summarizes our proposed mapping between blockchain components and our two-axis framework.
+% \input{figures/blockchain-layers}
+
+
+
+
+
+
+
+
+
+
+

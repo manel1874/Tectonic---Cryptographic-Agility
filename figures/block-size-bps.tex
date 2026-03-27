@@ -1,0 +1,163 @@
+% Requires: \usepackage{pgfplots}
+%          \usepgfplotslibrary{fillbetween}
+%          \pgfplotsset{compat=1.18}
+%
+
+\begin{figure}[!t]
+    \centering
+    \begin{tikzpicture}
+    \begin{axis}[   
+        width=\textwidth,
+        height=4.5cm,
+        xmode=log,
+        xlabel={Block size (MB)},
+        ylabel={Blocks per second (BPS)},
+        title={Block size impact on BPS},
+        grid=both,
+        grid style={dashed, gray!30},
+        % legend style={at={(0.3,0.05)}, anchor=south east, font=\small}, % below
+        legend style={at={(0.81,0.63)}, anchor=south east, font=\tiny}, % above
+        % log ticks with fixed point,
+        xmin=0.005,
+        xmax=37,
+        ymin=0.5,
+        ymax=6.5,
+        ytick={1,2,3,4,5,6},
+        % minor y tick num=1,
+        % major grid style={dashed, gray!30},
+        % minor grid style={dotted, gray!20},
+        % yminorgrids=true,
+    ]
+    
+    % Plot order: scatter (background) -> bands -> lines (foreground)
+    
+    % ===== ECDSA =====
+    % Scatter points (raw data) - plotted first so they're in background
+    \addplot[
+        only marks,
+        mark=*,
+        mark size=0.35pt,
+        color=ecdsa_line,
+        opacity=0.05,
+        forget plot
+    ] table[x=blockSizeMb, y=bps, col sep=comma] {figures/data/block_size_bps_ecdsa_raw.csv};
+    
+    % Error band - upper bound
+    \addplot[
+        draw=none,
+        name path=ecdsa_upper,
+        forget plot
+    ] table[x=blockSizeMb, y=stdUpper, col sep=comma] {figures/data/block_size_bps_ecdsa.csv};
+    
+    % Error band - lower bound
+    \addplot[
+        draw=none,
+        name path=ecdsa_lower,
+        forget plot
+    ] table[x=blockSizeMb, y=stdLower, col sep=comma] {figures/data/block_size_bps_ecdsa.csv};
+    
+    % Error band - fill between
+    \addplot[
+        fill=ecdsa_band,
+        fill opacity=0.4,
+        forget plot
+    ] fill between[of=ecdsa_upper and ecdsa_lower];
+    
+    % Mean line - plotted last so it's on top
+    \addplot[
+        color=ecdsa_line,
+        line width=0.5pt,
+        mark=none
+    ] table[x=blockSizeMb, y=meanBps, col sep=comma] {figures/data/block_size_bps_ecdsa.csv};
+    \addlegendentry{ECDSA}
+    
+    % ===== Falcon-512 =====
+    % Scatter points (raw data)
+    \addplot[
+        only marks,
+        mark=*,
+        mark size=0.35pt,
+        color=falcon_line,
+        opacity=0.05,
+        forget plot
+    ] table[x=blockSizeMb, y=bps, col sep=comma] {figures/data/block_size_bps_falcon_512_raw.csv};
+    
+    % Error band - upper bound
+    \addplot[
+        draw=none,
+        name path=falcon_upper,
+        forget plot
+    ] table[x=blockSizeMb, y=stdUpper, col sep=comma] {figures/data/block_size_bps_falcon_512.csv};
+    
+    % Error band - lower bound
+    \addplot[
+        draw=none,
+        name path=falcon_lower,
+        forget plot
+    ] table[x=blockSizeMb, y=stdLower, col sep=comma] {figures/data/block_size_bps_falcon_512.csv};
+    
+    % Error band - fill between
+    \addplot[
+        fill=falcon_band,
+        fill opacity=0.4,
+        forget plot
+    ] fill between[of=falcon_upper and falcon_lower];
+    
+    % Mean line
+    \addplot[
+        color=falcon_line,
+        line width=0.5pt,
+        mark=none
+    ] table[x=blockSizeMb, y=meanBps, col sep=comma] {figures/data/block_size_bps_falcon_512.csv};
+    \addlegendentry{Falcon-512}
+    
+    % ===== ML-DSA-44 =====
+    % Scatter points (raw data)
+    \addplot[
+        only marks,
+        mark=*,
+        mark size=0.35pt,
+        color=mldsa_line,
+        opacity=0.05,
+        forget plot
+    ] table[x=blockSizeMb, y=bps, col sep=comma] {figures/data/block_size_bps_ml_dsa_44_raw.csv};
+    
+    % Error band - upper bound
+    \addplot[
+        draw=none,
+        name path=mldsa_upper,
+        forget plot
+    ] table[x=blockSizeMb, y=stdUpper, col sep=comma] {figures/data/block_size_bps_ml_dsa_44.csv};
+    
+    % Error band - lower bound
+    \addplot[
+        draw=none,
+        name path=mldsa_lower,
+        forget plot
+    ] table[x=blockSizeMb, y=stdLower, col sep=comma] {figures/data/block_size_bps_ml_dsa_44.csv};
+    
+    % Error band - fill between
+    \addplot[
+        fill=mldsa_band,
+        fill opacity=0.4,
+        forget plot
+    ] fill between[of=mldsa_upper and mldsa_lower];
+    
+    % Mean line
+    \addplot[
+        color=mldsa_line,
+        line width=0.5pt,
+        mark=none
+    ] table[x=blockSizeMb, y=meanBps, col sep=comma] {figures/data/block_size_bps_ml_dsa_44.csv};
+    \addlegendentry{ML-DSA-44}
+
+    % 8 MB block limit vertical line
+    \addplot[dashed, thick, gray] coordinates {(8, 0) (8, 7)};
+    \node[font=\scriptsize, gray, anchor=west] at (axis cs:8.2, 3.5) {8 MB limit};
+        
+    \end{axis}
+    \end{tikzpicture}
+    \caption{Block size impact on BPS. Error bands show ±1 standard deviation. Based on observation from a live blockchain node (aggregated into 15-second windows), showing BPS behavior when each scheme dominates block production (ECDSA: 2,294 windows; Falcon-512: 1,104 windows; ML-DSA-44: 493 windows)}
+    \label{fig:block-size-impact}
+\end{figure}
+    

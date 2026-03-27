@@ -1,0 +1,17 @@
+\section{Conclusion}\label{sec:conclusion}
+
+
+% This work takes a concrete step towards cryptographically agile blockchain infrastructure by showing that post-quantum transitions can be introduced without hard forks while preserving EVM compatibility and operational continuity. 
+% Our evaluation reveals a key shift in system bottlenecks (cf. Section~\ref{s:experiments}) although post-quantum signatures such as Falcon-512 verify up to 2.75$\times$ faster than ECDSA and sustain 3{,}200 TPS ($\approx$80\% of baseline), and ML-DSA-44 reaches 1{,}900 TPS ($\approx$47\%), throughput becomes constrained not by computation but by block size and network bandwidth. 
+% These results highlight that future post-quantum blockchain designs must optimize for bandwidth efficiency as much as cryptographic performance. 
+% As future work, we plan to strengthen the P2P layer by exploring handshake constructions that restore mutual authentication without sacrificing post-quantum security.
+
+This work takes a concrete step towards cryptographically agile blockchain infrastructure by showing that cryptographic scheme changes, specifically transitions to post-quantum algorithms, can be introduced as operational upgrades without requiring hard forks, while preserving EVM compatibility and operational continuity. 
+Our evaluation reveals an important shift in system bottlenecks (cf. Section~\ref{s:experiments}): although post-quantum signatures such as Falcon-512 verify up to 2.83$\times$ faster than ECDSA and sustain 3{,}200 TPS ($\approx$80\% of baseline), and ML-DSA-44 reaches 1{,}900 TPS ($\approx$47\%), throughput becomes constrained not by computation but by block size and network bandwidth. 
+These results highlight that future post-quantum blockchain designs must optimize for bandwidth efficiency as much as cryptographic performance.
+
+This bandwidth pressure extends beyond the transaction layer into the P2P communication layer, where existing protocols impose tight size constraints that post-quantum schemes cannot satisfy through simple algorithm substitution.
+Discovery protocols such as Discv4~\cite{ethereum_discv4} rely on UDP gossip packets constrained to 1280 bytes (the IPv6 minimum MTU)~\cite{rfc8200_ipv6_min_mtu}, while Ethereum Node Records (ENRs)~\cite{eip868} are limited to 300 bytes.
+Since post-quantum signature schemes require transmitting both signatures and public keys, unlike ECDSA which supports public key recovery, they would exceed these limits, making a direct transition infeasible without protocol redesign.
+Exploring alternative authentication mechanisms for discovery protocols that preserve post-quantum security while respecting existing packet size constraints remains an important direction for future work.
+

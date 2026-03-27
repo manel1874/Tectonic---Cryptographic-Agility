@@ -1,0 +1,288 @@
+% \begin{figure}[!t]
+%     \centering
+%     \resizebox{\textwidth}{!}{%
+%     \begin{tikzpicture}[
+%         font=\small,
+%         body/.style={
+%             rectangle,
+%             fill=blue!8, draw=black!70,
+%             inner sep=6pt, minimum height=1.3cm
+%         },
+%         sig/.style={
+%             rectangle,
+%             fill=brown!12, draw=black!70,
+%             inner sep=6pt, minimum width=1.0cm, minimum height=0.5cm
+%         },
+%         sigcontainer/.style={
+%             rectangle,
+%             fill=brown!12, draw=black!70,
+%             inner sep=6pt, minimum height=1.3cm
+%         },
+%         wrapper/.style={
+%             rectangle,
+%             fill=black!5, draw=black!70,
+%             inner sep=8pt
+%         },
+%         typelabel/.style={
+%             rectangle,
+%             fill=black!50, draw=black!70,
+%             minimum width=0.4cm,
+%             minimum height=1.3cm,
+%             inner sep=6pt,
+%             font=\bfseries,
+%             align=center,
+%             text=white
+%         },
+%         sectiontitle/.style={font=\large\bfseries, text=black!60}
+%     ]
+    
+%     % ===================== LEGACY =====================
+%     \node[sectiontitle, rotate=90] at (-1.0, 1.3) {Legacy};
+    
+%     % Legacy body
+%     \node[typelabel, minimum height=1.2cm] (t02a) at (0.0, 1.3) {\rotatebox{90}{\texttt{0x02}}};
+%     \node[body, anchor=west, minimum height=1.2cm, minimum width=0.2cm] (legacybody) at (0.3, 1.3) {
+%         \begin{tabular}{@{}c@{}}
+%             \textcolor{black!70}{\scriptsize \texttt{chainId} \texttt{nonce}} \\
+%             \textcolor{black!70}{\scriptsize \ldots}
+%         \end{tabular}
+%     };
+    
+%     % Legacy signatures (stacked)
+%     \node[sig] (sigv) at (4.1, 1.9) {\textcolor{brown!70!black}{\scriptsize \texttt{v}}};
+%     \node[sig] (sigr) at (4.1, 1.3) {\textcolor{brown!70!black}{\scriptsize \texttt{r}}};
+%     \node[sig] (sigs) at (4.1, 0.7) {\textcolor{brown!70!black}{\scriptsize \texttt{s}}};
+
+%     % + symbol (drawn)
+%     \draw[line width=1.5pt, black!40] (2.75, 1.0) -- (2.75, 1.6);  % vertical
+%     \draw[line width=1.5pt, black!40] (2.45, 1.3) -- (3.05, 1.3);  % horizontal
+    
+%     % = symbol (drawn)
+%     \draw[line width=1.5pt, black!40] (5.5, 1.15) -- (6.1, 1.15);  % bottom line
+%     \draw[line width=1.5pt, black!40] (5.5, 1.45) -- (6.1, 1.45);  % top line
+    
+%     % Legacy final tx
+%     \node[typelabel, minimum height=1.6cm] (t02b) at (7, 1.3) {\rotatebox{90}{\texttt{0x02}}};
+%     \node[body, anchor=west, minimum height=1.6cm, minimum width=0.2cm] (legacyfinal) at (7.3, 1.3) {
+%         \begin{tabular}{@{}c@{}}
+%             \textcolor{black!70}{\scriptsize \texttt{chainId} \texttt{nonce}} \\
+%             \textcolor{black!70}{\scriptsize \ldots} \\
+%             \textcolor{brown!70!black}{\scriptsize \texttt{v} \texttt{r} \texttt{s}}
+%         \end{tabular}
+%     };
+    
+%     % ===================== CATX =====================
+%     % Dashed separator line
+%     \draw[dashed, black!40, line width=1pt] (-1.5, 0.0) -- (12.5, 0.0);
+    
+%     \node[sectiontitle, rotate=90] at (-1.0, -2.0) {CATX};
+    
+%     % CATX input body
+%     \node[typelabel, minimum height=1.2cm] (t02c) at (0.0, -2.0) {\rotatebox{90}{\texttt{0x02}}};
+%     \node[body, anchor=west, minimum height=1.2cm, minimum width=0.2cm] (catxbody) at (0.3, -2.0) {
+%         \begin{tabular}{@{}c@{}}
+%             \textcolor{black!70}{\scriptsize \texttt{chainId} \texttt{nonce}} \\
+%             \textcolor{black!70}{\scriptsize \ldots}
+%         \end{tabular}
+%     };
+    
+%     % Arrow instead of + =
+%     \draw[->, line width=1.5pt, black!40] (2.6, -2.0) -- (3.8, -2.0);
+    
+%     % ===================== CATX OUTPUT 1: Falcon =====================
+%     \node[typelabel, minimum height=1.5cm] (t54a) at (5.2, -1.1) {\rotatebox{90}{\texttt{0xCA}}};
+%     \node[wrapper, anchor=west, minimum width=5.2cm, minimum height=1.5cm] (wrap1) at (5.5, -1.1) {};
+    
+%     % Inner body within wrapper 1
+%     \node[typelabel, minimum height=1.2cm] (bt1) at (6.0, -1.1) {\rotatebox{90}{\texttt{0x02}}};
+%     \node[body, anchor=west, minimum height=1.2cm, minimum width=0.2cm] (b1) at (6.3, -1.1) {
+%         \begin{tabular}{@{}c@{}}
+%             \textcolor{black!70}{\scriptsize \texttt{chainId} \texttt{nonce}} \\
+%             \textcolor{black!70}{\scriptsize \ldots}
+%         \end{tabular}
+%     };
+    
+%     % Inner signature within wrapper 1 (Falcon = 0x02)
+%     \node[typelabel, minimum height=1.2cm] (st1) at (8.25, -1.1) {\rotatebox{90}{\texttt{0x02}}};
+%     \node[sigcontainer, anchor=west, minimum height=1.2cm, minimum width=1.9cm] (s1) at (8.55, -1.1) {
+%         \begin{tabular}{@{}l@{}}
+%             \textcolor{brown!70!black}{\scriptsize \texttt{publicKey}} \\
+%             \textcolor{brown!70!black}{\scriptsize \texttt{falconSignature}}
+%         \end{tabular}
+%     };
+    
+%     % ===================== CATX OUTPUT 2: ML-DSA =====================
+%     \node[typelabel, minimum height=1.5cm] (t54b) at (5.2, -2.9) {\rotatebox{90}{\texttt{0xCA}}};
+%     \node[wrapper, anchor=west, minimum width=5.2cm, minimum height=1.5cm] (wrap2) at (5.5, -2.9) {};
+    
+%     % Inner body within wrapper 2
+%     \node[typelabel, minimum height=1.2cm] (bt2) at (6.0, -2.9) {\rotatebox{90}{\texttt{0x02}}};
+%     \node[body, anchor=west, minimum height=1.2cm, minimum width=0.2cm] (b2) at (6.3, -2.9) {
+%         \begin{tabular}{@{}c@{}}
+%             \textcolor{black!70}{\scriptsize \texttt{chainId} \texttt{nonce}} \\
+%             \textcolor{black!70}{\scriptsize \ldots}
+%         \end{tabular}
+%     };
+    
+%     % Inner signature within wrapper 2 (ML-DSA = 0x03)
+%     \node[typelabel, minimum height=1.2cm] (st2) at (8.25, -2.9) {\rotatebox{90}{\texttt{0x03}}};
+%     \node[sigcontainer, anchor=west, minimum height=1.2cm, minimum width=1.9cm] (s2) at (8.55, -2.9) {
+%         \begin{tabular}{@{}l@{}}
+%             \textcolor{brown!70!black}{\scriptsize \texttt{publicKey}} \\
+%             \textcolor{brown!70!black}{\scriptsize \texttt{mldsaSignature}}
+%         \end{tabular}
+%     };
+    
+%     \end{tikzpicture}%
+%     }%
+%     \caption{
+%     Legacy transactions (top) embed ECDSA signature fields directly into the body.
+%     CATX (bottom) wraps body and signature as separate typed components within a \texttt{0xCA} envelope, enabling different signature schemes (e.g., Falcon with \texttt{sigType=0x02}, ML-DSA with \texttt{sigType=0x03}).}
+%     \label{fig:legacy-vs-catx}
+% \end{figure}
+
+
+
+\begin{figure}[!t]
+    \centering
+    \resizebox{\textwidth}{!}{%
+    \begin{tikzpicture}[
+        font=\small,
+        body/.style={
+            rectangle,
+            fill=blue!10, draw=black!70,
+            inner sep=6pt, minimum height=1.3cm
+        },
+        sig/.style={
+            rectangle,
+            fill=brown!12, draw=black!70,
+            inner sep=6pt, minimum width=1.0cm, minimum height=0.5cm
+        },
+        sigcontainer/.style={
+            rectangle,
+            fill=brown!12, draw=black!70,
+            inner sep=6pt, minimum height=1.3cm
+        },
+        wrapper/.style={
+            rectangle,
+            fill=black!5, draw=black!70,
+            inner sep=8pt
+        },
+        typelabel/.style={
+            rectangle,
+            fill=black!50, draw=black!70,
+            minimum width=0.4cm,
+            minimum height=1.3cm,
+            inner sep=6pt,
+            font=\bfseries,
+            align=center,
+            text=white
+        },
+        sectiontitle/.style={font=\large\bfseries, text=black!60}
+    ]
+    
+    % ===================== LEGACY =====================
+    \node[sectiontitle, rotate=90] at (-1.0, 1.3) {Legacy};
+    
+    % Legacy body
+    \node[typelabel, minimum height=1.2cm] (t02a) at (0.0, 1.3) {\rotatebox{90}{\texttt{0x02}}};
+    \node[body, anchor=west, minimum height=1.2cm, minimum width=0.2cm] (legacybody) at (0.3, 1.3) {
+        \begin{tabular}{@{}c@{}}
+            \textcolor{black!70}{\scriptsize \texttt{chainId} \texttt{nonce}} \\
+            \textcolor{black!70}{\scriptsize \ldots}
+        \end{tabular}
+    };
+    
+    % Legacy signatures (stacked)
+    \node[sig] (sigv) at (4.1, 1.9) {\textcolor{brown!70!black}{\scriptsize \texttt{v}}};
+    \node[sig] (sigr) at (4.1, 1.3) {\textcolor{brown!70!black}{\scriptsize \texttt{r}}};
+    \node[sig] (sigs) at (4.1, 0.7) {\textcolor{brown!70!black}{\scriptsize \texttt{s}}};
+
+    % + symbol (drawn)
+    \coordinate (pluscenter) at ($(legacybody.east)!0.5!(sigr.west)$);
+    \draw[line width=1.5pt, black!40] ($(pluscenter)+(0,-0.30)$) -- ($(pluscenter)+(0,0.30)$);  % vertical
+    \draw[line width=1.5pt, black!40] ($(pluscenter)+(-0.30,0)$) -- ($(pluscenter)+(0.30,0)$);  % horizontal
+    
+    % = symbol (drawn)
+    \draw[line width=1.5pt, black!40] (5.3, 1.45) -- (5.9, 1.45);  % top line
+    \draw[line width=1.5pt, black!40] (5.3, 1.15) -- (5.9, 1.15);  % bottom line
+    
+    % Legacy final tx
+    \node[typelabel, minimum height=1.6cm] (t02b) at (7, 1.3) {\rotatebox{90}{\texttt{0x02}}};
+    \node[body, anchor=west, minimum height=1.6cm, minimum width=0.2cm] (legacyfinal) at (7.3, 1.3) {
+        \begin{tabular}{@{}c@{}}
+            \textcolor{black!70}{\scriptsize \texttt{chainId} \texttt{nonce}} \\
+            \textcolor{black!70}{\scriptsize \ldots} \\
+            \textcolor{brown!70!black}{\scriptsize \texttt{v} \texttt{r} \texttt{s}}
+        \end{tabular}
+    };
+    
+    % ===================== CATX =====================
+    % Dashed separator line
+    \draw[dashed, black!40, line width=1pt] (-1.5, 0.0) -- (12.5, 0.0);
+    
+    \node[sectiontitle, rotate=90] at (-1.0, -2.0) {CATX};
+    
+    % CATX input body
+    \node[typelabel, minimum height=1.2cm] (t02c) at (0.0, -2.0) {\rotatebox{90}{\texttt{0x02}}};
+    \node[body, anchor=west, minimum height=1.2cm, minimum width=0.2cm] (catxbody) at (0.3, -2.0) {
+        \begin{tabular}{@{}c@{}}
+            \textcolor{black!70}{\scriptsize \texttt{chainId} \texttt{nonce}} \\
+            \textcolor{black!70}{\scriptsize \ldots}
+        \end{tabular}
+    };
+    
+    % Arrow instead of + =
+    \draw[->, line width=1.5pt, black!40] (3, -2.0) -- (4.3, -2.0);
+    
+    % ===================== CATX OUTPUT 1: Falcon =====================
+    \node[typelabel, minimum height=1.5cm] (t54a) at (5.2, -1.1) {\rotatebox{90}{\texttt{0xCA}}};
+    \node[wrapper, anchor=west, minimum width=6.2cm, minimum height=1.5cm] (wrap1) at (5.5, -1.1) {};
+    
+    % Inner body within wrapper 1
+    \node[typelabel, minimum height=1.2cm] (bt1) at (6.0, -1.1) {\rotatebox{90}{\texttt{0x02}}};
+    \node[body, anchor=west, minimum height=1.2cm, minimum width=0.2cm] (b1) at (6.3, -1.1) {
+        \begin{tabular}{@{}c@{}}
+            \textcolor{black!70}{\scriptsize \texttt{chainId} \texttt{nonce}} \\
+            \textcolor{black!70}{\scriptsize \ldots}
+        \end{tabular}
+    };
+    
+    % Inner signature within wrapper 1 (Falcon = 0x02)
+    \node[typelabel, minimum height=1.2cm] (st1) at (8.65, -1.1) {\rotatebox{90}{\texttt{0x02}}};
+    \node[sigcontainer, anchor=west, minimum height=1.2cm, minimum width=1.9cm] (s1) at (8.95, -1.1) {
+        \begin{tabular}{@{}l@{}}
+            \textcolor{brown!70!black}{\scriptsize \texttt{publicKey}} \\
+            \textcolor{brown!70!black}{\scriptsize \texttt{falconSignature}}
+        \end{tabular}
+    };
+    
+    % ===================== CATX OUTPUT 2: ML-DSA =====================
+    \node[typelabel, minimum height=1.5cm] (t54b) at (5.2, -2.9) {\rotatebox{90}{\texttt{0xCA}}};
+    \node[wrapper, anchor=west, minimum width=6.2cm, minimum height=1.5cm] (wrap2) at (5.5, -2.9) {};
+    
+    % Inner body within wrapper 2
+    \node[typelabel, minimum height=1.2cm] (bt2) at (6.0, -2.9) {\rotatebox{90}{\texttt{0x02}}};
+    \node[body, anchor=west, minimum height=1.2cm, minimum width=0.2cm] (b2) at (6.3, -2.9) {
+        \begin{tabular}{@{}c@{}}
+            \textcolor{black!70}{\scriptsize \texttt{chainId} \texttt{nonce}} \\
+            \textcolor{black!70}{\scriptsize \ldots}
+        \end{tabular}
+    };
+    
+    % Inner signature within wrapper 2 (ML-DSA = 0x03)
+    \node[typelabel, minimum height=1.2cm] (st2) at (8.65, -2.9) {\rotatebox{90}{\texttt{0x03}}};
+    \node[sigcontainer, anchor=west, minimum height=1.2cm, minimum width=2.4cm] (s2) at (8.95, -2.9) {
+        \begin{tabular}{@{}l@{}}
+            \textcolor{brown!70!black}{\scriptsize \texttt{publicKey}} \\
+            \textcolor{brown!70!black}{\scriptsize \texttt{mldsaSignature}}
+        \end{tabular}
+    };
+    
+    \end{tikzpicture}%
+    }%
+    \caption{
+    Legacy transactions (top) embed ECDSA signature fields directly into the body.
+    CATX (bottom) wraps body and signature as separate typed components within a \texttt{0xCA} envelope, enabling different signature schemes.}
+    \label{fig:legacy-vs-catx}
+\end{figure}

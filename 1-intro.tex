@@ -1,0 +1,187 @@
+% \manuel{Manuel's comments}
+
+% \danno{Danno's comments}
+
+% \ron{Ron's comments}
+
+% \mike{Mike's comments}
+
+% \fixme{Please fix this}
+
+% \todo{There is a todo here}
+
+\section{Introduction}\label{sec:intro}
+
+% \manuel{
+%   "Hedera has split tx body / signature (but it's tuned for multi-sig and key rotation not agility), but we have deep integeration with Ethereum's addressing system, which hedera lacks. Offchain labs circulated a split signature proposal ~2021 prior to blobs."
+%
+%   - EIP-7932
+%   - BIP-360
+%
+%   \begin{itemize}
+%       \item Lean consensus
+%       \begin{itemize}
+%           \item Focus on functional construction
+%           \item Measure performance and operational impact carefully
+%           \item ZK-first motivation: "snarkify everything" and make the entire system zero-knowledge provable
+%       \end{itemize}
+%   \end{itemize}
+% }
+
+
+% Structure:
+% - Intro to blockchains and their properties
+% - Crypto-agility in general
+% - Importance of CA to Blockcahins and quantum threat
+% - Why there is some lag on blockchain transition (give three highlevel issues, talk about Tectonic report)
+
+
+
+% Define what crypto-agility is based on NIST WP 39, pag 41. 
+
+% Blockchain should be designed to be persistent and immutable.
+
+% Importance of building a blockchain with crypto-agility. The reason is that crypto-agility is particularly important when portocol need long-term security, reliability and persistancy. 
+
+% This means that we need transition mechanisms in place for subsequent protocol-level subsequent failures. Or implementation issues. building systems that are designed to change as the threat landscape evolves
+
+% The above should justify that we need to design a blockchain with cryptoagility at its core.
+
+
+% The immediate threat facing cryptographic protocols comes from quantum computers. 
+
+% Blockchain relies on two main types of crypto algorithms: hash functions (for PoW, computing and verifying transaction hash, address generation, etc) and examples are SHA-256 and Keccak-256; as well as signature algorithms (we can differentiate two tiers: one used as an identification mechanism between nodes or directly to transactions.
+
+% Reference~\ref{ESORICS:GieCreRas16} on what happens to Bitcoin in the presence of broken cryptogrpahic primitives.
+
+% We have an historical example where a bitcoin vulnerability CVE-2018-17144 was patched within days by miners. However, given the threat and uncertainty about Q-Day, threat is not perceived as urgent, delaying the risk and need for a transition. CVE-2018-17144 upgrade was different in nature which introduced much less friction. P
+
+% Note: We should state that current bitcoin, eth do not have crypto agility, some chains have some cryto agility but we need to design from scratch a blockchain with crytoagility in mind.
+
+% Stress that NIST WP 39 on cryptoagility do not address blockchain use-cases. 
+
+Blockchains provide decentralized trust through cryptographic verification rather than reliance on trusted third parties. 
+Unlike centralized systems where data can be modified, blockchains are designed to be persistent and immutable, providing long-term integrity guarantees. 
+Their security relies on multiple building blocks, including the consensus layer, execution layer, transaction mechanisms, and peer-to-peer communication protocols. 
+These components are built on cryptographic primitives such as hash functions (e.g., SHA-256~\cite{NIST:FIPS1804}, Keccak~\cite{NIST:FIPS202}) and digital signature schemes, making them foundational to blockchain integrity~\cite{ESORICS:GieCreRas16}.
+
+Historical precedent shows that cryptographic primitives can become vulnerable due to algorithmic advances (e.g., MD5~\cite{EC:WanYu05}, SHA-1~\cite{C:SBKAM17}), implementation flaws, or paradigm shifts such as quantum computation~\cite{FOCS:Shor94}. 
+Given the long-term lifespan of blockchains, systems must be able to transition cryptographic primitives without disrupting operation. 
+This ability, referred to in NIST CSWP 39 as cryptographic agility~\cite{NIST:BCC+25}, is essential for sustaining security over time. 
+However, the properties that make blockchains valuable also create challenges when cryptographic primitives must be updated, replaced, or deprecated, making cryptographic agility a fundamental design feature.
+
+The most immediate threat to blockchain cryptography comes from quantum computers. 
+Current systems rely heavily on elliptic curve signature schemes such as ECDSA~\cite{NIST:FIPS1865} and EdDSA~\cite{JCEng:BDLSY12}, which are vulnerable to cryptographically relevant quantum computers via Shor's algorithm~\cite{FOCS:Shor94}. 
+Despite this risk, migration to post-quantum cryptography remains slow. 
+A survey of over 14,000 blockchain users found that although quantum threats are widely acknowledged, 58.8\% stated that post-quantum security is ``not important'' when choosing chains or applications~\cite{tectonic2025quantumdisconnect}. 
+This perception gap, combined with coordination challenges, deployment processes that risk network forks, and long-term backward compatibility requirements for legacy accounts, significantly delays transition efforts.
+
+These challenges help explain why major blockchain systems such as Bitcoin~\cite{BTC:NA08} and Ethereum~\cite{ETH:BU13} currently lack cryptographic agility, and why platforms with partial agility support, including Hedera~\cite{HEDERA:BHM20} and Cosmos~\cite{COSMOS:KB16}, still struggle with comprehensive post-quantum transitions. 
+Existing analysis, such as NIST CSWP 39~\cite{NIST:BCC+25}, also lack an overview of current approaches and best practices to achieve crypto agility in decentralized systems. 
+This paper addresses these gaps by designing a blockchain with cryptographic agility as a foundational principle from genesis, enabling secure cryptographic transitions as threats evolve while preserving the persistence and immutability that define blockchains.
+
+\subsection{Our Contribution}\label{subsec:contribution}
+
+We propose an Ethereum virtual machine (EVM)-based blockchain that addresses cryptographic agility needs in different layers of the protocol stack to allow future migrations and post-quantum support.
+More specifically, we present the following contributions.
+
+\begin{itemize}
+    \item \textit{Flexibility framework} (Section~\ref{sec:crypto-flexibility}). 
+    We propose a framework that specifies how cryptographic algorithm choice can be addressed. 
+    We identify three flexibility types (singular, negotiated, selected), and map each blockchain layer to the appropriate type based on its coordination constraints.
+    
+    \item \textit{Cryptographically agile transactions} (Section~\ref{s:catx}). 
+    We design CATX, a new transaction format that decouples transaction body from signature into independent components with explicit type identifiers.
+    This enables users to select their signature algorithm without protocol changes, following the selected flexibility type.
+    
+    \item \textit{Consensus key agility} (Section~\ref{ss:cryptographic-agile-consensus}). 
+    We introduce a mechanism to migrate the consensus-specific signature scheme as an operational upgrade via consensus-layer transactions, with activation gated by voting power $>2/3$.
+    
+    % \item \textit{Post-quantum P2P communication} (Section~\ref{s:p2p-node-communication}). 
+    % We redesign the node discovery and transport protocols to use hybrid key encapsulation (X-Wing) instead of ECDSA-based authentication, following the layered flexibility model.
+    
+    \item \textit{Experimental evaluation} (Section~\ref{s:experiments}). 
+    We evaluate the performance impact of post-quantum cryptography across the protocol stack, measuring transaction throughput under various signature schemes.
+    We identify block size, not computation, as the limiting factor for larger post-quantum signatures.
+\end{itemize}
+
+\subsection{Related Work}\label{subsec:related-work}
+
+The blockchain industry has recognized the quantum threat for over a decade, prompting various high-profile projects to adopt distinct approaches to post-quantum security. We examine existing efforts, dividing them into chains requiring migration and post-quantum-native solutions.
+
+\paragraph{Chains Requiring Migration.} Solana introduced the Winternitz vault in January 2025~\cite{ref_solana_vault}, a sophisticated construction based on the Winternitz one-time signature~\cite{AFRICACRYPT:BDEHR11}. The vault mechanism employs programmatic address derivation to compress signatures, achieving post-quantum security while mitigating blockspace overhead. However, this opt-in, application-layer solution creates a fragmented security landscape where only proactive users gain protection while the majority remain vulnerable. Moreover, vaults must be instantiated through standard transactions that themselves rely on quantum-vulnerable elliptic curve (EC)-based signatures, leaving the bootstrapping process exposed.
+
+Algorand pioneered post-quantum implementations among major blockchains, introducing State Proofs in 2022, consisting of post-quantum secure certificates signed by validator supermajorities using Falcon signatures~\cite{ref_algorand_stateproofs,ref_gpv}. While State Proofs represent a significant achievement, other aspects of Algorand continue to rely on quantum-vulnerable cryptography: transaction signatures use EC cryptography, and the consensus mechanism depends on a classical verifiable random function~\cite{ref_algorand_roadmap}. Since Algorand launched without post-quantum security from genesis, its transition process faces the coordination and migration difficulties inherent to protocol-wide cryptographic upgrades.
+
+Bitcoin's migration discourse centers on several community proposals under active discussion. The prominent draft by Lopp~\cite{ref_lopp_migration} outlines a phased approach: Phase A would prohibit transactions to legacy quantum-vulnerable address types (P2PK, P2PKH) three years after BIP-360~\cite{ref_bip360} implementation, forcing new UTXOs (unspent transaction output) into quantum-resistant formats (P2QRH). Phase B would invalidate transactions from legacy addresses after a fixed period, freezing unmigrated funds. However, these approaches have met with skepticism within the community. The viability of such migrations depends heavily on the BIP-32 wallet standard~\cite{BIP32}, creating problems for non-conforming wallets such as paper wallets.
+
+Ethereum has adopted a comprehensive research approach through multiple initiatives~\cite{ref_ethereum_pse,ref_ethereum_transition}. For user-level transaction signing, post-quantum migration remains under heavy research without concrete implementation plans. While account abstraction (EIP-4337)~\cite{ref_ethereum_aa} has been proposed as a potential enabling technology~\cite{ref_ethereum_pqc}, theoretical proposals involving STARK proofs face significant practical challenges including substantial computational overhead and unclear migration paths. At the consensus layer, Ethereum researchers investigate quantum-resistant alternatives for BLS signatures in Proof-of-Stake~\cite{ref_drake_pqbls}. Despite this theoretical sophistication, Ethereum's approach faces enormous coordination challenges affecting every layer of the protocol stack, requiring consensus among globally distributed stakeholders.
+
+Baldimtsi et al.~\cite{EPRINT:BCR25} presents a migration strategy for EdDSA-based chains with backward compatibility. 
+However, this approach lacks the cryptographic agility necessary for future transitions beyond the initial post-quantum migration, as it relies on proving knowledge of the seed used in EdDSA key derivation.
+
+\paragraph{Post-Quantum Chains and Solutions.} Several academic works propose blockchain transition schemes. Sato et al.~\cite{ICCCN:SM17} proposes a scheme inspired by long-term signature schemes, but assumes availability of a secure timestamping service and a trusted public key infrastructure (PKI), requiring decentralization of the PKI system with critical practical consequences and added governance issues. 
+Meng and Chen~\cite{ESORICS:MenChe22} work further develops and formalizes the transition scheme, but does not take into account API and data format details in blockchain implementations, presenting transitions only at a conceptual level addressing hash and signature schemes rather than specific blockchain subsystems. 
+Fukuda and Matsuo~\cite{EPRINT:FM25} highlights migration issues but only mentions generic migration paths.
+
+Among existing chains, Quantum Resistant Ledger (QRL)~\cite{QRL:WP18} uses XMSS signatures~\cite{PQCRYPTO:BucDahHul11} for post-quantum security, implementing a cap on the number of signatures generated and an address format that allows for different signature schemes. 
+However, QRL is not an EVM-based chain, limiting its compatibility with the broader Ethereum ecosystem. 
+QANplatform~\cite{qanplatform2026} incorporates ML-DSA~\cite{NIST:24MLDSA} signatures for cross-chain signing, but this addresses only a narrow aspect of post-quantum security rather than the comprehensive stack-wide problems. 
+The platform lacks cryptographic agility in its design, focusing on a single post-quantum primitive without migration mechanisms. 
+The Quantus design~\cite{QUANTUS:031} addresses post-quantum security in both peer-to-peer (P2P) node communication and transaction layers. 
+However, Quantus follows a Proof-of-Work consensus mechanism, whereas our approach uses Proof-of-Stake, creating fundamental architectural differences in how consensus and security are achieved. 
+Neptune Cash~\cite{NEPTUNE:SV25} implements post-quantum cryptography, but lacks modularity and does not incorporate cryptographic agility or migration strategies in its design, making future transitions difficult.
+
+% \manuel{I would remove this paragraph}
+% Existing approaches exhibit a fundamental tension between immediate deployability and comprehensive security. Application-layer solutions like Solana's vaults offer rapid deployment but create fragmented security. Protocol-layer approaches like Bitcoin's proposed migrations and Ethereum's research roadmaps promise comprehensive security but face severe coordination challenges and extended timelines. Post-quantum-native chains demonstrate the viability of quantum-resistant primitives but lack the cryptographic agility framework necessary for future migrations as threats evolve. These efforts underscore the advantages of designing post-quantum security with cryptographic agility from genesis rather than retrofitting established protocols or building systems without migration capabilities.
+
+% The blockchain industry has recognized the quantum threat for over a decade, prompting various high-profile projects to adopt distinct approaches to post-quantum security. We examine the most notable efforts, focusing on their technical implementations, migration strategies, and fundamental trade-offs.
+
+% \textbf{Winternitz Vaults (Solana).} Solana introduced the Winternitz Vault in January 2025~\cite{ref_solana_vault}, a sophisticated construction based on the Winternitz One-Time Signature (WOTS). WOTS represents a tuneable variant of Lamport signatures that enables control over the trade-off between signature sizes and verification times~\cite{ref_bde_wots}. Solana's implementation commits in advance to a large number of signatures, releasing them gradually while enforcing unique key usage per transaction to prevent key reuse. The vault mechanism employs programmatic address derivation to compress signatures, achieving post-quantum security while mitigating much of the blockspace overhead typically associated with hash-based signatures.
+
+% The vault approach offers immediate deployability as a smart contract, requiring no modifications to the underlying protocol. However, this opt-in, application-layer solution creates a fragmented security landscape where only proactive users gain protection while the majority remain vulnerable. Moreover, vaults must be instantiated through standard transactions that themselves rely on quantum-vulnerable EC-based signatures, leaving the bootstrapping process exposed.
+
+% \textbf{Lattice-Based Leadership (Algorand).} Algorand pioneered post-quantum implementations among major blockchains, introducing State Proofs in 2022—compact, post-quantum secure certificates that attest to ledger state changes every fixed number of rounds~\cite{ref_algorand_stateproofs,ref_algorand_foundation}. This approach demonstrates considerable technical sophistication: State Proofs contain Merkle trees attesting to block headers, signed by validator supermajorities using FALCON signatures. Algorand integrated experimental FALCON verification opcodes into their virtual machine and built upon the strong theoretical foundation of the Gentry-Peikert-Vaikuntanathan framework for lattice-based signatures~\cite{ref_gpv}.
+
+% While State Proofs represent a significant achievement, other aspects of Algorand continue to rely on quantum-vulnerable cryptography. Transaction signatures use EC cryptography, and the consensus mechanism depends on a pre-quantum verifiable random function (VRF). Algorand has presented a clear roadmap to transition these components to post-quantum primitives~\cite{ref_algorand_roadmap}. Nevertheless, since Algorand launched without post-quantum security from genesis, its transition process faces the coordination and migration difficulties inherent to protocol-wide cryptographic upgrades.
+
+% \textbf{Bitcoin's Community-Driven Proposals.} Bitcoin's migration discourse centers on several community proposals under active discussion. The prominent draft by Lopp~\cite{ref_lopp_migration} outlines a phased approach with strong migration incentives: Phase A would prohibit transactions to legacy quantum-vulnerable address types (P2PK, P2PKH with exposed public keys) three years after BIP-360 implementation, forcing new UTXOs into quantum-resistant formats (P2QRH). Phase B would invalidate transactions from legacy addresses after a fixed period, freezing unmigrated funds. An optional Phase C explores zero-knowledge proofs for frozen fund recovery using BIP-39 seed phrases.
+
+% BIP-360~\cite{ref_bip360} proposes the P2QRH output type and explores specific technical implementations of quantum-resistant address types and signature schemes. Community discussions continue around backward-compatible migration paths and the trade-offs between forced migration and asset freezing risks. Proponents argue that CRQCs constitute a systemic threat requiring protocol-enforced solutions despite significant user burden.
+
+% These approaches have met with skepticism within the community. The viability of such migrations depends heavily on the BIP-32 wallet standard, introduced years after Bitcoin's inception, creating problems for non-conforming wallets such as paper wallets. The community continues debating economic incentive design and disruption minimization strategies.
+
+% \textbf{Ethereum's Research-Driven Approach.} Ethereum has adopted a comprehensive research approach through multiple initiatives. The Privacy \& Scaling Explorations team conducts research into post-quantum cryptography applications~\cite{ref_ethereum_pse}, while community researchers have developed task lists identifying quantum vulnerabilities across the protocol stack from transaction signatures to zero-knowledge proofs~\cite{ref_ethereum_transition}.
+
+% For user-level transaction signing, post-quantum migration remains under heavy research without concrete implementation plans. While Account Abstraction (EIP-4337)~\cite{ref_ethereum_aa} has been proposed as a potential enabling technology for bottom-up post-quantum migration~\cite{ref_ethereum_pqc}, theoretical proposals involving STARK proofs to demonstrate private key knowledge face significant practical challenges. These include substantial computational overhead for proof generation and verification, unclear migration paths for existing wallets, and unresolved questions regarding backward compatibility and user experience.
+
+% At the consensus layer, Ethereum researchers investigate quantum-resistant alternatives for BLS signatures in Proof-of-Stake. Drake et al.~\cite{ref_drake_pqbls} introduce a family of hash-based signature schemes as post-quantum alternatives to BLS, examining signature aggregation through novel hash-based constructions termed "pqSNARKs." Their analysis estimates aggregated signatures at approximately 2-3 MB, with space savings materializing once signature counts exceed roughly 1,000. They project throughput of up to 10,000 signatures per second for aggregation.
+
+% Ethereum's research identifies quantum vulnerabilities across multiple protocol layers: transaction signing, address recovery mechanisms, KZG polynomial commitments for EIP-4844, EVM opcodes, and consensus layer signature aggregation.
+
+% Despite this theoretical sophistication, Ethereum's approach faces enormous coordination challenges. The proposed transition affects every layer of the protocol stack, requiring consensus among globally distributed stakeholders. Historical precedent suggests such coordination requires years—Bitcoin's Taproot upgrade required three years, while Ethereum's EIP-1559 similarly demanded extensive coordination. The complexity of Ethereum's post-quantum transition substantially exceeds these examples. Additionally, current focus on scaling solutions may conflict with post-quantum priorities. The ecosystem's investment in Layer 2 solutions, many relying on quantum-vulnerable cryptography, creates additional coordination challenges for comprehensive transitions.
+
+% \textbf{Summary.} Existing approaches exhibit a fundamental tension between immediate deployability and comprehensive security. Application-layer solutions like Solana's vaults offer rapid deployment but create fragmented security. Protocol-layer approaches like Bitcoin's proposed migrations and Ethereum's research roadmaps promise comprehensive security but face severe coordination challenges and extended timelines. Algorand's partial implementation demonstrates the viability of targeted post-quantum features while highlighting the difficulties of retrofitting existing systems. These efforts underscore the advantages of designing post-quantum security from genesis rather than retrofitting established protocols.
+
+
+
+% Some other papers to consider on blockchain transition schemes:
+% \begin{itemize}
+%     \item \cite{ICCCN:SM17}: it proposes a scheme inspired by long-term signature schemes to help the blockchain remains secure. However, it assumes availability of a secure timestamping service and a trusted public key infrastructure (PKI). Requiring a decentralization of PKI system which has some critical practical consequences and added governance issues.
+%     \item \cite{ESORICS:MenChe22} Further developed the above model and formalize the transition scheme. However, it does not take into account the API and data format details in a blockchain implementation. Only present the transition in a conceptual level addressing hash and signature schemes used not specific to the blockchain subsystem at hand. 
+%     \item \cite{EPRINT:FM25} highlights some of the issues and mention some generic migration schemes.
+%     \item \cite{EPRINT:BCR25}: present a migration strategy for EdDSA chains with backward compatibility. But lacks an agile approach.
+% \end{itemize}
+
+
+% Other projects:
+% \begin{itemize}
+%     \item QRL
+%     \item Quantus
+%     \item QANplatform: no crypto-agility in mind. Only uses dilithium for cross-singing, which is not related to the whole stack problems. 
+%     \item Quantus design: address the use of P2P node communication and transaction. However, follows a proof of work approach. We follow a PoS approach.
+%     % Ref: https://mozilla.github.io/pdf.js/web/viewer.html?file=https://raw.githubusercontent.com/Quantus-Network/whitepaper/main/whitepaper.pdf
+%     \item Neptune Cash: post-quantum but not modular and with no agility and migration strategy in mind.
+% \end{itemize}
+
+

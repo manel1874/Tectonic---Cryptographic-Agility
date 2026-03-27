@@ -1,0 +1,63 @@
+\begin{figure}[!t]
+\centering
+\begin{tikzpicture}[
+    layer/.style={rectangle, rounded corners=4pt, minimum width=8.5cm, minimum height=1.3cm, 
+                  text centered, draw=black!60, line width=1pt, font=\small\bfseries},
+    threat/.style={circle, fill=red!90!black, text=white, font=\scriptsize\bfseries, minimum size=0.5cm},
+    arrow/.style={->, >=Stealth, thick, line width=2pt, color=blue!70!black},
+    dataflow/.style={->, >=Stealth, thick, dashed, line width=1.5pt, color=gray!70},
+    threatline/.style={-, line width=1.5pt, color=red!70!black, dashed},
+    model/.style={rectangle, rounded corners=2pt, fill=white!90, draw=black!30, 
+                  inner sep=2pt, font=\tiny, align=center},
+    removed/.style={rectangle, rounded corners=4pt, minimum width=8.5cm, minimum height=1.3cm, 
+                    text centered, draw=red!60, line width=1.5pt, font=\small\bfseries, 
+                    pattern=north east lines, pattern color=red!20}
+]
+
+% Define layer positions
+\def\layerheight{1.6cm}
+\def\layerwidth{9cm}
+
+% Layer 1: P2P Node Communication (bottom)
+\node[layer, fill=green!25, minimum width=\layerwidth] (p2p) at (0,0) 
+    {\shortstack{P2P Node Communication\\\small\mdseries Node authentication, key exchange, secure channels}};
+
+% Layer 2: Consensus Layer
+\node[layer, fill=orange!25, minimum width=\layerwidth] (consensus) at (0,1*\layerheight) 
+    {\shortstack{Consensus Layer\\\small\mdseries Validator signatures, aggregation, leader selection}};
+
+% Layer 3: Execution Layer
+\node[layer, fill=purple!25, minimum width=\layerwidth] (exec) at (0,2*\layerheight) 
+    {\shortstack{Execution Layer\\\small\mdseries On-chain cryptography, precompiled contracts}};
+
+% Layer 4: Transaction Layer
+\node[layer, fill=blue!25, minimum width=\layerwidth] (tx) at (0,3*\layerheight) 
+    {\shortstack{Transaction Layer\\\small\mdseries User signatures, address schemes, value transfers}};
+
+% Layer 5: Data Availability Layer (top)
+\node[layer, fill=yellow!25, minimum width=\layerwidth] (data) at (0,4*\layerheight) 
+    {\shortstack{Data Availability\\\small\mdseries Cryptographic commitments, erasure coding}};
+
+% Transition/Flexibility model annotations
+\node[model] at ($(p2p.west) + (-1.2, 0)$) 
+    {\shortstack{Transition:\\Forked\\Flexibility:\\Layered/\\Singular}};
+
+\node[model] at ($(consensus.west) + (-1.2, 0)$) 
+    {\shortstack{Transition:\\Forked\\Flexibility:\\Singular}};
+
+\node[model] at ($(exec.west) + (-1.2, 0)$) 
+    {\shortstack{Transition:\\Modular\\Flexibility:\\Selected}};
+
+\node[model] at ($(tx.west) + (-1.2, 0)$) 
+    {\shortstack{Transition:\\Modular\\Flexibility:\\Selected}};
+
+\node[model] at ($(data.west) + (-1.2, 0)$) 
+    {\shortstack{Removed}};
+
+\end{tikzpicture}
+\caption{\textbf{Blockchain security building blocks.} 
+The blockchain infrastructure decomposes into five cryptographic layers. 
+Each layer is annotated with its transition model (Forked/Overlapped/Modular) and flexibility model (Singular/Layered/Negotiated/Selected).}
+\label{fig:blockchain-layers}
+\end{figure}
+
